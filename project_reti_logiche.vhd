@@ -201,13 +201,14 @@ architecture Behavioral of project_reti_logiche is
                     next_state <= UPDATE_WRITE;
                     
                 when UPDATE_WRITE =>
-                    if (count = max_address) then
+                    if(to_integer(unsigned(o_address_reg)) = max_address + max_address - 1) then
+                    --if (count = max_address) then
                         count_next <= 2;
                         o_done_next <= '1';
                         next_state <= IDLE;
                     else
                         count_next <= count + 1;
-                        o_address_next <= o_address_reg - std_logic_vector(to_unsigned(max_address - 1, o_address_next'length));
+                        o_address_next <= o_address_reg - std_logic_vector(to_unsigned(max_address - 2, o_address_next'length));
                         o_we_next <= '0';
                         next_state <= UPDATE_READ;
                     end if;
