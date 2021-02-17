@@ -46,7 +46,7 @@ entity project_reti_logiche is
 end project_reti_logiche;
 
 architecture Behavioral of project_reti_logiche is
-    type state_type is (IDLE, COL, ROW, MIN_MAX, ARG, LOG, UPDATE_READ, UPDATE_WRITE);
+    type state_type is (IDLE, COL, ROW, MIN_MAX, ARG, LOG, UPDATE_READ, UPDATE_WRITE, DONE);
     signal current_state, next_state : state_type;
     signal o_address_next, o_address_reg : std_logic_vector(15 downto 0) := "0000000000000000"; -- in o_address reg il registro attuale, lo stesso ocntenuto di o_address. Ne ho bisogno in quanto o_address non me lo fa leggere
     signal o_data_next: std_logic_vector(7 downto 0) := "00000000";
@@ -55,7 +55,7 @@ architecture Behavioral of project_reti_logiche is
     signal max: integer range 0 to 255 := 0;
     signal count, count_next: integer range 0 to 16385 := 2; --Posso memorizzarli come interi, almeno riesco a fare bene tutte le operazioni che voglio
     signal delta_value: std_logic_vector(7 downto 0) := (others => '0');    
-    signal max_address, max_address_next: integer range 0 to 16385 := 2; --è l'ultimo indirizzo in memoria da cui leggo, mi conviene usare direttamente un intero, 
+    signal max_address: integer range 0 to 16385 := 2; --è l'ultimo indirizzo in memoria da cui leggo, mi conviene usare direttamente un intero, 
     --farei comunque la conversione per verificare se l'indirizzo a cui sto accedendo è minore o uguale
     signal shift_level: integer range 0 to 8;
     
@@ -78,7 +78,6 @@ architecture Behavioral of project_reti_logiche is
                 o_data <= o_data_next;
                 count <= count_next;
                 o_done <= o_done_next;
-                max_address<=max_address_next;
             end if;
         end process;
             
@@ -121,7 +120,7 @@ architecture Behavioral of project_reti_logiche is
                     
                 when ROW =>
                     o_en_next <= '1';
-                    max_address_next <= (col_count * to_integer(unsigned(i_data))) + 1; --dovrei fare +2, ma siccome gli indirizzi partono da 0 faccio solo +1
+                    max_address <= (col_count * to_integer(unsigned(i_data))) + 1; --dovrei fare +2, ma siccome gli indirizzi partono da 0 faccio solo +1
                     count_next <= 3; -- la prossima cella che leggo è la 2, ma in verità poi comando la 3!
                     o_address_next <= "0000000000000010";
                     next_state <= MIN_MAX;
@@ -184,23 +183,29 @@ architecture Behavioral of project_reti_logiche is
                     
                 when UPDATE_WRITE =>
                     if(count = max_address - 1) then
-                        count_next <= 2;
-                        o_en_next <= '0';
-                        o_we_next <= '0';
-                        o_data_next <= "00000000";
-                        o_address_next <= "0000000000000000";
                         o_done_next <= '1';
-                        min <= 255;
-                        max <= 0;
-                        max_address_next <= 0;
-                        shift_level <= 0;
-                        delta_value <= "00000000";
-                        next_state <= IDLE;
+                        next_state <= DONE;
                     else
                         count_next <= count + 1;
                         o_address_next <= std_logic_vector (to_unsigned(2 + count, 16));
                         o_we_next <= '0';
                         next_state <= UPDATE_READ;
+                    end if;
+                
+                when DONE =>
+                    if (i_start = '0') then
+                        count_next <= 2;
+                        o_en_next <= '0';
+                        o_we_next <= '0';
+                        o_data_next <= "00000000";
+                        o_address_next <= "0000000000000000";
+                        o_done_next <= '0';
+                        min <= 255;
+                        max <= 0;
+                        max_address <= 0;
+                        shift_level <= 0;
+                        delta_value <= "00000000";
+                        next_state <= IDLE;
                     end if;
             end case;
         end process;
