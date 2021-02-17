@@ -44,17 +44,16 @@ entity project_reti_logiche is
            o_data : out std_logic_vector(7 downto 0)
            );
 end project_reti_logiche;
-
 architecture Behavioral of project_reti_logiche is
     type state_type is (IDLE, COL, ROW, MIN_MAX, ARG, LOG, UPDATE_READ, UPDATE_WRITE, DONE);
     signal current_state, next_state : state_type;
     signal o_address_next, o_address_reg : std_logic_vector(15 downto 0) := "0000000000000000"; -- in o_address reg il registro attuale, lo stesso ocntenuto di o_address. Ne ho bisogno in quanto o_address non me lo fa leggere
     signal o_data_next: std_logic_vector(7 downto 0) := "00000000";
     signal o_done_next, o_en_next, o_we_next : std_logic := '0';
-    signal min: integer range 0 to 255 := 255;
-    signal max: integer range 0 to 255 := 0;
+    signal min, min_next: integer range 0 to 255 := 255;
+    signal max, max_next: integer range 0 to 255 := 0;
     signal count, count_next: integer range 0 to 16385 := 2; --Posso memorizzarli come interi, almeno riesco a fare bene tutte le operazioni che voglio
-    signal delta_value: std_logic_vector(7 downto 0) := (others => '0');    
+    signal delta_value: std_logic_vector(8 downto 0) := (others => '0');    
     signal max_address: integer range 0 to 16385 := 2; --è l'ultimo indirizzo in memoria da cui leggo, mi conviene usare direttamente un intero, 
     --farei comunque la conversione per verificare se l'indirizzo a cui sto accedendo è minore o uguale
     signal shift_level: integer range 0 to 8;
@@ -68,6 +67,8 @@ architecture Behavioral of project_reti_logiche is
                 o_address_reg <= "0000000000000000";
                 --o_address_next <= "0000000000000000";
                 count <= 2; --lo inizializzo a 2, tanto mi serve per scorrere i pixel
+                max <= 0;
+                min <= 255;
                 --count_next <= 2;
             elsif (i_clk'event and i_clk='1') then --mi dice cosa succede sul fronte di salita del clock a ogni giro
                 current_state <= next_state; --aggiorno stato
@@ -78,14 +79,16 @@ architecture Behavioral of project_reti_logiche is
                 o_data <= o_data_next;
                 count <= count_next;
                 o_done <= o_done_next;
+                max <= max_next;
+                min <= min_next;
             end if;
         end process;
             
         delta_lambda: process(i_start, i_data, current_state, o_address_reg, min, max, count, max_address, current_state)
         variable col_count : integer range 0 to 128 := 0;
         variable i : INTEGER := 0; -- la uso per uscire dal for nello stato LOG
-        variable temp_pixel : std_logic_vector(0 to 7) := (others => '0'); -- per il calcolo del new_pixel_value (write_next)
-        variable temp_pixel_shifted : std_logic_vector(0 to 15) := (others => '0'); -- per il calcolo del new_pixel_value (write_next)
+        variable temp_pixel : std_logic_vector(7 downto 0) := (others => '0'); -- per il calcolo del new_pixel_value (write_next)
+        variable temp_pixel_shifted : std_logic_vector(15 downto 0) := (others => '0'); -- per il calcolo del new_pixel_value (write_next)
 
         begin
             o_done_next <= '0';
@@ -94,7 +97,8 @@ architecture Behavioral of project_reti_logiche is
             o_data_next <= "00000000";
             o_address_next <= "0000000000000000";
             count_next<=count;
-            
+            max_next <= max;
+            min_next <= min;
             
             --1° stato: IDLE, è lo stato in cui sto quando non succede niente. Ho un dubbio io metterei o_en_next quando becco lo start. Facendo così secondo me posso leggere subito nello stato successivo!! Sei d'accordo? 
             case current_state is
@@ -129,9 +133,14 @@ architecture Behavioral of project_reti_logiche is
                 when MIN_MAX =>
                     -- Aggiorno (se necessario) i valori di massimo e minimo
                     if (to_integer(unsigned(i_data)) < min) then
-                        min <= to_integer(unsigned(i_data));
-                    elsif (to_integer(unsigned(i_data)) >max) then
-                        max <=  to_integer(unsigned(i_data));
+                        min_next <= to_integer(unsigned(i_data));
+                    else
+                        min_next <= min;
+                    end if;
+                    if (to_integer(unsigned(i_data)) >max) then
+                        max_next <=  to_integer(unsigned(i_data));
+                    else
+                        max_next <= max;
                     end if;
                     -- Verifico se l'immagine è finita
                     -- *finita->vado in ARG
@@ -149,33 +158,36 @@ architecture Behavioral of project_reti_logiche is
                     end if;
                     
                 when ARG =>
-                    delta_value <= std_logic_vector(to_unsigned(max-min+1, 8));
+                    delta_value <= std_logic_vector(to_unsigned(max-min+1, 9));
                     count_next <= 2;
                     o_en_next <= '0';
                     next_state <= LOG;
                     
                 when LOG =>
                     i := 0;
-                    while (i<8 and delta_value(i) = '0') loop
+                    while (i<9 and delta_value(i) = '0') loop
                         i := i+1;
                     end loop;
                     shift_level <= i;
                     count_next <= 1;
-                    next_state <= UPDATE_READ;
                     o_address_next <= "0000000000000010";
                     o_en_next <= '1';
+                    next_state <= UPDATE_READ;
                
                 when UPDATE_READ =>
-                    temp_pixel_shifted := "00000000" & i_data;
+                    temp_pixel := std_logic_vector(unsigned(i_data) - to_unsigned(min, 8));
+                    temp_pixel_shifted := std_logic_vector(resize(unsigned(temp_pixel), 16));
+                    --temp_pixel_shifted := "00000000" & temp_pixel;
                     temp_pixel_shifted := std_logic_vector(shift_left(unsigned(temp_pixel_shifted), shift_level));
                    
                     --temp_pixel_shifted := std_logic_vector(temp_pixel sll shift_level);
                     if to_integer(unsigned(temp_pixel_shifted)) > 255 then
                         o_data_next <= "11111111";
                     else
-                        for i in 15 downto 8 loop
-                            o_data_next(i-8) <= temp_pixel_shifted (i);
-                        end loop;
+                        o_data_next <= std_logic_vector(resize(unsigned(temp_pixel_shifted), 8));
+                        --for i in 15 downto 8 loop
+                          --  o_data_next(i-8) <= temp_pixel_shifted (i);
+                        --end loop;
                     end if;
                     o_address_next <= std_logic_vector (to_unsigned(max_address+count, 16));
                     o_we_next <= '1';
@@ -200,12 +212,14 @@ architecture Behavioral of project_reti_logiche is
                         o_data_next <= "00000000";
                         o_address_next <= "0000000000000000";
                         o_done_next <= '0';
-                        min <= 255;
-                        max <= 0;
+                        min_next <= 255;
+                        max_next <= 0;
                         max_address <= 0;
                         shift_level <= 0;
-                        delta_value <= "00000000";
+                        delta_value <= "000000000";
                         next_state <= IDLE;
+                    else
+                        next_state <= DONE;
                     end if;
             end case;
         end process;
