@@ -53,23 +53,27 @@ architecture Behavioral of project_reti_logiche is
     signal min, min_next: integer range 0 to 255 := 255;
     signal max, max_next: integer range 0 to 255 := 0;
     signal count, count_next: integer range 0 to 16385 := 2; --Posso memorizzarli come interi, almeno riesco a fare bene tutte le operazioni che voglio
-    signal delta_value: std_logic_vector(8 downto 0) := (others => '0');    
-    signal max_address: integer range 0 to 16385 := 2; --è l'ultimo indirizzo in memoria da cui leggo, mi conviene usare direttamente un intero, 
-    --farei comunque la conversione per verificare se l'indirizzo a cui sto accedendo è minore o uguale
-    signal shift_level: integer range 0 to 8;
+    signal delta_value, delta_value_next: std_logic_vector(8 downto 0) := (others => '0');    
+    signal max_address, max_address_next: integer range 0 to 16385 := 2;
+    signal shift_level, shift_level_next: integer range 0 to 8;
     
     begin
         state_reg: process(i_clk, i_rst)
         begin
             if i_rst='1' then
+                delta_value <= (others => '0');
+                max_address <= 2;
                 current_state <= IDLE;
                 o_address <= "0000000000000000";
                 o_address_reg <= "0000000000000000";
-                --o_address_next <= "0000000000000000";
-                count <= 2; --lo inizializzo a 2, tanto mi serve per scorrere i pixel
+                count <= 2;
                 max <= 0;
                 min <= 255;
-                --count_next <= 2;
+                o_done <= '0';
+                o_en <= '1';
+                o_we <= '0';
+                o_data <= "00000000";
+                
             elsif (i_clk'event and i_clk='1') then --mi dice cosa succede sul fronte di salita del clock a ogni giro
                 current_state <= next_state; --aggiorno stato
                 o_address <= o_address_next; --aggiorno l'indirizzo a cui leggo/scrivo
@@ -81,6 +85,9 @@ architecture Behavioral of project_reti_logiche is
                 o_done <= o_done_next;
                 max <= max_next;
                 min <= min_next;
+                max_address <= max_address_next;
+                shift_level <= shift_level_next;
+                delta_value <= delta_value_next;
             end if;
         end process;
             
@@ -96,70 +103,53 @@ architecture Behavioral of project_reti_logiche is
             o_we_next <= '0';
             o_data_next <= "00000000";
             o_address_next <= "0000000000000000";
-            count_next<=count;
+            count_next <= count;
             max_next <= max;
             min_next <= min;
-            
-            --1° stato: IDLE, è lo stato in cui sto quando non succede niente. Ho un dubbio io metterei o_en_next quando becco lo start. Facendo così secondo me posso leggere subito nello stato successivo!! Sei d'accordo? 
+            max_address_next <= max_address;
+            shift_level_next <= shift_level;
+            delta_value_next <= delta_value;
             case current_state is
                 when IDLE =>
                     if (i_start = '1') then
-                        o_en_next <= '1';
-                        o_we_next <= '0';
-                        o_done_next <= '0';
-                        o_data_next <= "00000000";
-                        --o_address_next <= "0000000000000000";
                         next_state <= COL;
                     else
-                        o_done_next <= '0';
                         next_state <= IDLE;
                     end if;
                     
                 when COL =>
-                    o_en_next <= '1';
                     col_count:= to_integer(unsigned(i_data));
                     o_address_next <= "0000000000000001";
                     next_state <= ROW;
                     count_next<=2;
-                    
                 when ROW =>
-                    o_en_next <= '1';
-                    max_address <= (col_count * to_integer(unsigned(i_data))) + 1; --dovrei fare +2, ma siccome gli indirizzi partono da 0 faccio solo +1
+                    max_address_next <= (col_count * to_integer(unsigned(i_data))) + 1; --dovrei fare +2, ma siccome gli indirizzi partono da 0 faccio solo +1
                     count_next <= 3; -- la prossima cella che leggo è la 2, ma in verità poi comando la 3!
                     o_address_next <= "0000000000000010";
-                    next_state <= MIN_MAX;
-
-                
+                    next_state <= MIN_MAX;      
                 when MIN_MAX =>
-                    -- Aggiorno (se necessario) i valori di massimo e minimo
                     if (to_integer(unsigned(i_data)) < min) then
                         min_next <= to_integer(unsigned(i_data));
-                    else
-                        min_next <= min;
                     end if;
-                    if (to_integer(unsigned(i_data)) >max) then
+                    if (to_integer(unsigned(i_data)) > max) then
                         max_next <=  to_integer(unsigned(i_data));
-                    else
-                        max_next <= max;
                     end if;
-                    -- Verifico se l'immagine è finita
-                    -- *finita->vado in ARG
-                    -- *non finita->mi sposto nella cella successiva
                     if (count = max_address+1) then
-                        count_next <= 2;
                         o_address_next <= "0000000000000010";
+                        --o_address_next <= std_logic_vector(resize(to_unsigned(min, 9),16));
+                        
+                        min_next <= 46; -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! toglila dopo
                         o_en_next <= '0';
                         next_state <= ARG;
                     else
                         count_next <= count + 1;
                         o_address_next <= std_logic_vector(to_unsigned(count, 16));
-                        o_en_next <= '1';
                         next_state <= MIN_MAX;
                     end if;
                     
                 when ARG =>
-                    delta_value <= std_logic_vector(to_unsigned(max-min+1, 9));
-                    count_next <= 2;
+                    delta_value_next <= std_logic_vector(to_unsigned(max-min+1, 9));
+                    --o_address_next <= std_logic_vector(resize(to_unsigned(max-min+1, 9),16));
                     o_en_next <= '0';
                     next_state <= LOG;
                     
@@ -168,26 +158,20 @@ architecture Behavioral of project_reti_logiche is
                     while (i<9 and delta_value(i) = '0') loop
                         i := i+1;
                     end loop;
-                    shift_level <= i;
+                    shift_level_next <= i;
                     count_next <= 1;
                     o_address_next <= "0000000000000010";
-                    o_en_next <= '1';
                     next_state <= UPDATE_READ;
                
                 when UPDATE_READ =>
                     temp_pixel := std_logic_vector(unsigned(i_data) - to_unsigned(min, 8));
                     temp_pixel_shifted := std_logic_vector(resize(unsigned(temp_pixel), 16));
-                    --temp_pixel_shifted := "00000000" & temp_pixel;
                     temp_pixel_shifted := std_logic_vector(shift_left(unsigned(temp_pixel_shifted), shift_level));
-                   
-                    --temp_pixel_shifted := std_logic_vector(temp_pixel sll shift_level);
+                    
                     if to_integer(unsigned(temp_pixel_shifted)) > 255 then
                         o_data_next <= "11111111";
                     else
                         o_data_next <= std_logic_vector(resize(unsigned(temp_pixel_shifted), 8));
-                        --for i in 15 downto 8 loop
-                          --  o_data_next(i-8) <= temp_pixel_shifted (i);
-                        --end loop;
                     end if;
                     o_address_next <= std_logic_vector (to_unsigned(max_address+count, 16));
                     o_we_next <= '1';
@@ -196,29 +180,26 @@ architecture Behavioral of project_reti_logiche is
                 when UPDATE_WRITE =>
                     if(count = max_address - 1) then
                         o_done_next <= '1';
+                        count_next <= 2;
+                        o_en_next <= '0';
+                        min_next <= 255;
+                        max_next <= 0;
+                        max_address_next <= 0;
+                        shift_level_next <= 0;
+                        delta_value_next <= "000000000";
                         next_state <= DONE;
                     else
                         count_next <= count + 1;
                         o_address_next <= std_logic_vector (to_unsigned(2 + count, 16));
-                        o_we_next <= '0';
                         next_state <= UPDATE_READ;
                     end if;
                 
                 when DONE =>
-                    if (i_start = '0') then
-                        count_next <= 2;
-                        o_en_next <= '0';
-                        o_we_next <= '0';
-                        o_data_next <= "00000000";
-                        o_address_next <= "0000000000000000";
-                        o_done_next <= '0';
-                        min_next <= 255;
-                        max_next <= 0;
-                        max_address <= 0;
-                        shift_level <= 0;
-                        delta_value <= "000000000";
+                    if (i_start = '0') then                        
+                        o_en_next <= '0';                                
                         next_state <= IDLE;
                     else
+                        o_en_next <= '0';
                         next_state <= DONE;
                     end if;
             end case;
