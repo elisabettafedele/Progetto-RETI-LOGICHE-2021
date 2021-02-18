@@ -45,7 +45,7 @@ entity project_reti_logiche is
            );
 end project_reti_logiche;
 architecture Behavioral of project_reti_logiche is
-    type state_type is (IDLE, COL, ROW, MIN_MAX, ARG, LOG, UPDATE_READ, UPDATE_WRITE, DONE);
+    type state_type is (IDLE, COL, ROW, WAIT_VALUE, MIN_MAX, ARG, LOG, UPDATE_READ, UPDATE_WRITE, DONE);
     signal current_state, next_state : state_type;
     signal o_address_next, o_address_reg : std_logic_vector(15 downto 0) := "0000000000000000"; -- in o_address reg il registro attuale, lo stesso ocntenuto di o_address. Ne ho bisogno in quanto o_address non me lo fa leggere
     signal o_data_next: std_logic_vector(7 downto 0) := "00000000";
@@ -56,6 +56,7 @@ architecture Behavioral of project_reti_logiche is
     signal delta_value, delta_value_next: std_logic_vector(8 downto 0) := (others => '0');    
     signal max_address, max_address_next: integer range 0 to 16385 := 2;
     signal shift_level, shift_level_next: integer range 0 to 8;
+    signal state_return,state_return_next : state_type;
     
     begin
         state_reg: process(i_clk, i_rst)
@@ -64,6 +65,7 @@ architecture Behavioral of project_reti_logiche is
                 delta_value <= (others => '0');
                 max_address <= 2;
                 current_state <= IDLE;
+                state_return <= IDLE;
                 o_address <= "0000000000000000";
                 o_address_reg <= "0000000000000000";
                 count <= 2;
@@ -88,6 +90,7 @@ architecture Behavioral of project_reti_logiche is
                 max_address <= max_address_next;
                 shift_level <= shift_level_next;
                 delta_value <= delta_value_next;
+                state_return <= state_return_next;
             end if;
         end process;
             
@@ -112,21 +115,26 @@ architecture Behavioral of project_reti_logiche is
             case current_state is
                 when IDLE =>
                     if (i_start = '1') then
-                        next_state <= COL;
+                        next_state <= WAIT_VALUE;
+                        state_return_next <= COL;
                     else
                         next_state <= IDLE;
                     end if;
-                    
+                when WAIT_VALUE =>
+                    o_address_next <= o_address_reg;
+                    next_state <= state_return;                    
                 when COL =>
                     col_count:= to_integer(unsigned(i_data));
                     o_address_next <= "0000000000000001";
-                    next_state <= ROW;
-                    count_next<=2;
+                    next_state <= WAIT_VALUE;
+                    state_return_next <= ROW;
+                    count_next<=2;                
                 when ROW =>
                     max_address_next <= (col_count * to_integer(unsigned(i_data))) + 1; --dovrei fare +2, ma siccome gli indirizzi partono da 0 faccio solo +1
                     count_next <= 3; -- la prossima cella che leggo è la 2, ma in verità poi comando la 3!
                     o_address_next <= "0000000000000010";
-                    next_state <= MIN_MAX;      
+                    next_state <= WAIT_VALUE;
+                    state_return_next <= MIN_MAX;    
                 when MIN_MAX =>
                     if (to_integer(unsigned(i_data)) < min) then
                         min_next <= to_integer(unsigned(i_data));
@@ -135,16 +143,14 @@ architecture Behavioral of project_reti_logiche is
                         max_next <=  to_integer(unsigned(i_data));
                     end if;
                     if (count = max_address+1) then
-                        o_address_next <= "0000000000000010";
-                        --o_address_next <= std_logic_vector(resize(to_unsigned(min, 9),16));
-                        
-                        min_next <= 46; -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! toglila dopo
+                        --o_address_next <= std_logic_vector(resize(to_unsigned(min, 9),16));                        
                         o_en_next <= '0';
                         next_state <= ARG;
                     else
                         count_next <= count + 1;
                         o_address_next <= std_logic_vector(to_unsigned(count, 16));
-                        next_state <= MIN_MAX;
+                        next_state <= WAIT_VALUE;
+                        state_return_next <= MIN_MAX;
                     end if;
                     
                 when ARG =>
@@ -154,14 +160,19 @@ architecture Behavioral of project_reti_logiche is
                     next_state <= LOG;
                     
                 when LOG =>
-                    i := 0;
-                    while (i<9 and delta_value(i) = '0') loop
-                        i := i+1;
+                    i := 8;
+                    while (i>-1 and delta_value(i) = '0') loop
+                        i := i-1;
                     end loop;
-                    shift_level_next <= i;
+                    if (i=-1) then
+                        shift_level_next <= 8;
+                    else 
+                        shift_level_next <= 8-i;
+                    end if;
                     count_next <= 1;
-                    o_address_next <= "0000000000000010";
-                    next_state <= UPDATE_READ;
+                    o_address_next <= "0000000000000010";                    
+                    next_state <= WAIT_VALUE;
+                    state_return_next <= UPDATE_READ;
                
                 when UPDATE_READ =>
                     temp_pixel := std_logic_vector(unsigned(i_data) - to_unsigned(min, 8));
@@ -188,10 +199,12 @@ architecture Behavioral of project_reti_logiche is
                         shift_level_next <= 0;
                         delta_value_next <= "000000000";
                         next_state <= DONE;
+                        state_return_next <= IDLE;
                     else
                         count_next <= count + 1;
                         o_address_next <= std_logic_vector (to_unsigned(2 + count, 16));
-                        next_state <= UPDATE_READ;
+                        next_state <= WAIT_VALUE;
+                        state_return_next <= UPDATE_READ;
                     end if;
                 
                 when DONE =>
