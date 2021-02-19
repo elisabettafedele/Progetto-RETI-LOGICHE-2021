@@ -40,7 +40,7 @@ int main(){
 	time_t t; // per il random
 	srand((unsigned) time(&t));
 	
-	FILE* fp = fopen ("tb.vhd","w"); // cambia in .txt se vuoi leggere i risultati !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	FILE* fp = fopen ("tb.txt","w"); // cambia in .txt se vuoi leggere i risultati !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	int i,j,pixel,schifo,temp,k,scelta;
 	int clock;
 	printf("Scegli il clock in nanosecondi\n");
@@ -329,8 +329,8 @@ FILE *f = NULL;
 FILE *f_eq = NULL;
 if(scelta==1){
 for(i=0;i<n_immagini;i++){
-	s[5]='i+1';
-	s_eq[8]='i+1';
+	s[5]=i+49;
+	s_eq[8]=i+49;
 f = fopen(s,"w");
 f_eq = fopen(s_eq,"w");
 indice=0;
