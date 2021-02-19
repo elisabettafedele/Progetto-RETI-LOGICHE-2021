@@ -19,17 +19,19 @@ int shift_f (int a, int shift){
 	return n;
 }
 
-void stampa(int n_immagini,int** img,int** img_eq,int* row,int* col){
+void stampa(int n_immagini,int** img,int** img_eq,int* row,int* col,int *min, int *max, int *delta, int *shift){
 	int i,j,pixel;
 	for(i=0;i<n_immagini;i++){
 		pixel=row[i]*col[i];
-		printf("\nimmagine vera numero %d:\n",i+1);
-		for(j=0;j<pixel;j++)
+		//printf("\nimmagine vera numero %d:\n",i+1);
+		printf("immagine numero %d:\nmin: %d, max: %d, delta+1: %d, shift: %d\n",i+1,min[i],max[i],delta[i],shift[i]);
+		/*for(j=0;j<pixel;j++)
 			printf("%d ",img[i][j]);
 		printf("\nimmagine equalizzata numero %d\n",i+1);
 		for(j=0;j<pixel;j++)
 			printf("%d ",img_eq[i][j]);		
-	}
+	}*/
+}
 }
 
 
@@ -38,8 +40,8 @@ int main(){
 	time_t t; // per il random
 	srand((unsigned) time(&t));
 	
-	FILE* fp = fopen ("tb.txt","w"); // cambia in .txt se vuoi leggere i risultati !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	int i,j,pixel,schifo,delta,shift,temp,k;
+	FILE* fp = fopen ("tb.vhd","w"); // cambia in .txt se vuoi leggere i risultati !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	int i,j,pixel,schifo,temp,k,scelta;
 	int clock;
 	printf("Scegli il clock in nanosecondi\n");
 	scanf("%d",&clock);
@@ -71,11 +73,10 @@ int main(){
 	int* immagini[n_immagini];
 	int* img_equalizzate[n_immagini];
 	int row[n_immagini],col[n_immagini];
-	int min[n_immagini],max[n_immagini];
+	int min[n_immagini],max[n_immagini], delta[n_immagini],shift[n_immagini];
 	
 	for (i=0; i<n_immagini;i++){
-		min[i]=255;
-		max[i]=0;
+		scelta=0;	
 		printf("Inserisci il numero di righe dell'immagine %d\n",i+1);
 		scanf("%d",&row[i]);
 		printf("Inserisci il numero di colonne dell'immagine %d\n",i+1);
@@ -83,6 +84,11 @@ int main(){
 		pixel=row[i]*col[i];
 		immagini[i] = malloc(pixel * sizeof(int));
 		img_equalizzate[i] = malloc(pixel * sizeof(int));
+		printf("Digita 0 per inserimento random, 1 per scegliere min e max (se righe*colonne=1 non scegliere 1), 2 per scegliere tutti i valori\n");
+		scanf("%d",&scelta);
+		if(scelta==0){
+		min[i]=255;
+		max[i]=0;
 		for(j=0;j<pixel;j++){
 			schifo = rand() % 255;
 			immagini[i][j]=schifo;
@@ -90,12 +96,39 @@ int main(){
 				min[i]=schifo;
 			if(schifo>max[i])
 				max[i]=schifo;			
+		}}
+		if(scelta==1){
+			printf("Inserisci min:\n");
+			scanf("%d",&min[i]);
+			printf("Inserisci max:\n");
+			scanf("%d",&max[i]);
+			immagini[i][0]=min[i];
+			immagini[i][1]=max[i];
+			for(j=2;j<pixel;j++){
+			do{
+				schifo = rand() % 255;
+			}while(schifo<min[i] || schifo>max[i]);
+			immagini[i][j]=schifo;			
+		}	
 		}
-		delta=max[i]-min[i]+1;
-		shift=8-log2(delta);
+		if(scelta==2){
+			min[i]=255;
+			max[i]=0;
+			for(j=0;j<pixel;j++){
+				printf("Inserisci pixel numero %d:\n",j+1);
+				scanf("%d",&schifo);
+				immagini[i][j]=schifo;
+				if(schifo<min[i])
+				min[i]=schifo;
+				if(schifo>max[i])
+				max[i]=schifo;			
+		}	
+		}
+		delta[i]=max[i]-min[i]+1;
+		shift[i]=8-log2(delta[i]);
 		for(j=0;j<pixel;j++){
 			temp=immagini[i][j]-min[i];
-			temp=shift_f(temp,shift);
+			temp=shift_f(temp,shift[i]);
 			if(temp>255)
 			img_equalizzate[i][j]=255;
 			else
@@ -281,8 +314,43 @@ if(i==n_immagini-1)
     fprintf(fp,"assert false report \"Simulation Ended! TEST PASSATO\" severity failure;\n");
     fprintf(fp,"end process test;\n");
 	fprintf(fp,"end projecttb;\n");
-	stampa(n_immagini,immagini,img_equalizzate,row,col);
 	
 	fclose(fp);
+//CREA IMMAGINE/I:
+scelta=0;
+printf("Digita 1 per creare due file di testo per ogni immagine, uno con tutti i pixel,\n");
+printf("e uno con tutti quelli dell'immagine equalizzata, altrimenti digita 0\n");
+scanf("%d",&scelta);
+int indice;
+char c;
+char s[11]="imagex.txt";
+char s_eq[13]="image_eqx.txt";
+FILE *f = NULL;
+FILE *f_eq = NULL;
+if(scelta==1){
+for(i=0;i<n_immagini;i++){
+	s[5]='i+1';
+	s_eq[8]='i+1';
+f = fopen(s,"w");
+f_eq = fopen(s_eq,"w");
+indice=0;
+for(j=0;j<row[i];j++){
+	for(k=0;k<col[i];k++){
+	fprintf(f,"%d",immagini[i][indice]);
+	fprintf(f_eq,"%d ",img_equalizzate[i][indice]);
+	indice++;
+	if(k!=col[i]-1){
+		fprintf(f,"\t");
+		fprintf(f_eq,"\t");
+	}
+	}
+fprintf(f,"\n");
+fprintf(f_eq,"\n");
+}
+fclose(f);
+fclose(f_eq);
+}
+}
+stampa(n_immagini,immagini,img_equalizzate,row,col,min,max,delta,shift);
 	return 0;
 }
