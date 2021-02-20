@@ -39,8 +39,8 @@ int main(){
 	time_t t; // per il random
 	srand((unsigned) time(&t));
 	FILE *f1;
-	FILE* fp = fopen ("tb.txt","w"); // cambia in .txt se vuoi leggere i risultati !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	int i,j,pixel,schifo,temp,k,scelta;
+	FILE* fp = fopen ("tb.vhd","w"); // cambia in .txt se vuoi leggere i risultati !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	int i,j,pixel,schifo,temp,k,scelta,bob,mike;
 	int clock;
 	printf("Scegli il clock in nanosecondi\n");
 	scanf("%d",&clock);
@@ -60,7 +60,7 @@ int main(){
 //RAM	
 	int n_immagini;
 	char tab;
-	printf("Inserisci numero immagini\n");
+	printf("Inserisci numero immagini (se vuoi reset asincrono inserisci 1)\n");
 	scanf("%d",&n_immagini);
 	if(n_immagini>1){
 	fprintf(fp,"signal i: std_logic_vector(%d downto 0) := \"",n_immagini-1);
@@ -276,9 +276,31 @@ int main(){
 // TEST PROCESS
 	fprintf(fp,"test : process is\n");
     fprintf(fp,"begin \n");
-	if(n_immagini == 1){   
+	if(n_immagini == 1){
 	fprintf(fp,"wait for 100 ns;\n");
 	fprintf(fp,"wait for c_CLOCK_PERIOD;\n");
+	fprintf(fp,"tb_rst <= '1';\n");
+    fprintf(fp,"wait for c_CLOCK_PERIOD;\n");
+    fprintf(fp,"wait for 100 ns;\n");
+	fprintf(fp,"tb_rst <= '0';\n");
+	fprintf(fp,"wait for c_CLOCK_PERIOD;\n");
+	fprintf(fp,"wait for 100 ns;\n");
+	fprintf(fp,"tb_start <= '1';\n");
+    fprintf(fp,"wait for c_CLOCK_PERIOD;\n");
+    printf("Digita 1 per far si' che il test_bench improvvisamente setti i_rst a 1, digita 0 per non farlo, digita 2 per far si'\n");
+    printf("che il setting a 1 di i_rst avvenga ripetutamente\n");
+    scanf("%d",&scelta);
+    if(scelta==0){
+    fprintf(fp,"wait until tb_done = '1';\n");
+    fprintf(fp,"wait for c_CLOCK_PERIOD;\n");
+	fprintf(fp,"tb_start <= '0';\n");
+	fprintf(fp,"wait until tb_done = '0';\n");
+	fprintf(fp,"wait for 100 ns;\n");
+	}
+	if(scelta==1){
+	printf("Inserisci dopo quanto tempo dal momento in cui i_start è andato a 1 vuoi che i_rst vada a 1 (in ns)\n");
+	scanf("%d",&bob);
+	fprintf(fp,"wait for %d ns;\n",bob);
 	fprintf(fp,"tb_rst <= '1';\n");
     fprintf(fp,"wait for c_CLOCK_PERIOD;\n");
     fprintf(fp,"wait for 100 ns;\n");
@@ -292,6 +314,30 @@ int main(){
 	fprintf(fp,"tb_start <= '0';\n");
 	fprintf(fp,"wait until tb_done = '0';\n");
 	fprintf(fp,"wait for 100 ns;\n");
+	}
+	if(scelta==2){
+		printf("Inserisci quante volte vuoi che i_rst vada a 1\n");
+		scanf("%d",&mike);
+		printf("Ok, ora genero %d istanti di tempo casuali >= 0 (incluso) ns corrispondenti all'intervallo di tempo\n",mike);
+		printf("fra cui i_start va a 1 e i_rst va a 1:\n");
+		for(i=0;i<mike;i++){
+			bob = rand() % 255;
+			fprintf(fp,"wait for %d ns;\n",bob);
+			fprintf(fp,"tb_rst <= '1';\n");
+    		fprintf(fp,"wait for c_CLOCK_PERIOD;\n");
+    		fprintf(fp,"wait for 100 ns;\n");
+			fprintf(fp,"tb_rst <= '0';\n");
+			fprintf(fp,"wait for c_CLOCK_PERIOD;\n");
+			fprintf(fp,"wait for 100 ns;\n");
+			fprintf(fp,"tb_start <= '1';\n");
+    		fprintf(fp,"wait for c_CLOCK_PERIOD;\n");
+		}
+		fprintf(fp,"wait until tb_done = '1';\n");
+    	fprintf(fp,"wait for c_CLOCK_PERIOD;\n");
+		fprintf(fp,"tb_start <= '0';\n");
+		fprintf(fp,"wait until tb_done = '0';\n");
+		fprintf(fp,"wait for 100 ns;\n");
+	}
 	}
 	else{
 		for(i=0;i<n_immagini;i++){			
