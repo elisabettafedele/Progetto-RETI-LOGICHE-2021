@@ -23,14 +23,13 @@ void stampa(int n_immagini,int** img,int** img_eq,int* row,int* col,int *min, in
 	int i,j,pixel;
 	for(i=0;i<n_immagini;i++){
 		pixel=row[i]*col[i];
-		//printf("\nimmagine vera numero %d:\n",i+1);
 		printf("immagine numero %d:\nmin: %d, max: %d, delta+1: %d, shift: %d\n",i+1,min[i],max[i],delta[i],shift[i]);
 		/*for(j=0;j<pixel;j++)
 			printf("%d ",img[i][j]);
 		printf("\nimmagine equalizzata numero %d\n",i+1);
 		for(j=0;j<pixel;j++)
-			printf("%d ",img_eq[i][j]);		
-	}*/
+			printf("%d ",img_eq[i][j]);	*/	
+	
 }
 }
 
@@ -39,7 +38,7 @@ int main(){
 	
 	time_t t; // per il random
 	srand((unsigned) time(&t));
-	
+	FILE *f1;
 	FILE* fp = fopen ("tb.txt","w"); // cambia in .txt se vuoi leggere i risultati !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	int i,j,pixel,schifo,temp,k,scelta;
 	int clock;
@@ -60,6 +59,7 @@ int main(){
 	fprintf(fp,"type ram_type is array (65535 downto 0) of std_logic_vector(7 downto 0);\n\n");
 //RAM	
 	int n_immagini;
+	char tab;
 	printf("Inserisci numero immagini\n");
 	scanf("%d",&n_immagini);
 	if(n_immagini>1){
@@ -76,7 +76,10 @@ int main(){
 	int min[n_immagini],max[n_immagini], delta[n_immagini],shift[n_immagini];
 	
 	for (i=0; i<n_immagini;i++){
-		scelta=0;	
+		scelta=0;
+		printf("digita 1 per importare un'immagine 128x128pixel da un file \"milano_bn.txt\", 0 altrimenti\n");
+		scanf("%d",&scelta);
+		if(scelta==0){
 		printf("Inserisci il numero di righe dell'immagine %d\n",i+1);
 		scanf("%d",&row[i]);
 		printf("Inserisci il numero di colonne dell'immagine %d\n",i+1);
@@ -123,6 +126,40 @@ int main(){
 				if(schifo>max[i])
 				max[i]=schifo;			
 		}	
+		}}
+		else{
+			row[i]=128;
+			col[i]=128;
+			min[i]=255;
+			max[i]=0;
+			pixel=128*128;
+			immagini[i] = malloc(pixel * sizeof(int));
+			img_equalizzate[i] = malloc(pixel * sizeof(int));
+			f1=fopen("milano_bn.txt","r");
+	for(j=0;j<pixel;j++){
+		fscanf(f1,"%d",&schifo);
+		immagini[i][j]=schifo;
+		if(schifo<min[i])
+		min[i]=schifo;
+		if(schifo>max[i])
+		max[i]=schifo;
+		fscanf(f1,"%c",&tab);
+	}
+	fclose(f1);
+		printf("Inserisci 1 per disequalizzare questa immagine, 0 altrimenti\n");
+		scanf("%d",&scelta);
+		if(scelta==1){
+			printf("Inserisci valore minimo:\n");
+			scanf("%d",&min[i]);
+			printf("Inserisci valore massimo:\n");
+			scanf("%d",&max[i]);
+			for(j=0;j<pixel;j++){
+		if(immagini[i][j]<min[i])
+		immagini[i][j]=min[i];
+		if(immagini[i][j]>max[i])
+		immagini[i][j]=max[i];
+		}
+		}
 		}
 		delta[i]=max[i]-min[i]+1;
 		shift[i]=8-log2(delta[i]);
