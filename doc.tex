@@ -1,977 +1,585 @@
-\documentclass[letterpaper,12pt]{article}
-\usepackage[margin=1in]{geometry}
-\usepackage{verbatim}
-\usepackage{amsmath}
-\usepackage{supertabular}
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{textcomp}
+\usepackage{graphicx}
+\usepackage{float}
 \usepackage{array}
+\usepackage{amsmath} % Math aligning equation
+\usepackage{verbatim} % Command \verb
+\usepackage{titlesec} % Righe di separazione
+\usepackage{subcaption}
+\usepackage[table]{xcolor}
+\usepackage{tikz}
+\usepackage{float}
 
-\def\T{{\hbox{\scriptsize{\rm T}}}}
-\def\epsilon{\varepsilon}
-\def\bigoh{\mathcal{O}}
-\def\phi{\varphi}
-\def\st{{\hbox{\scriptsize{\rm st}}}}
-\def\th{{\hbox{\scriptsize{\rm th}}}}
-\def\x{\mathbf{x}}
 
 
-\title{ID: A software package for low-rank approximation
-       of matrices via interpolative decompositions, Version 0.4}
-\author{Per-Gunnar Martinsson, Vladimir Rokhlin,\\
-        Yoel Shkolnisky, and Mark Tygert}
+% Tabelle
+\usepackage{tabu}
+\usepackage{caption} 
+\captionsetup[table]{skip=2pt}
+
+% Impostazioni di pagina e margini
+\usepackage[a4paper, margin=2.54cm]{geometry}
+
+% Spacing nelle liste
+\usepackage{enumitem}
+\setlist{topsep=2pt, itemsep=2pt, partopsep=2pt, parsep=2pt}
+
+% Cambio di nome di contenuti Latex
+\renewcommand*\contentsname{Indice}
+\renewcommand{\figurename}{Figura}
+\renewcommand{\tablename}{Tabella}
+
+% Checkmarks
+\usepackage{pifont}
+\newcommand{\cmark}{\ding{51}} % V
+\newcommand{\xmark}{\ding{55}} % X
+
+% Header & Footer
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Progetto finale di Reti Logiche - a.a. 2020/2021}
+%\rhead{Elisabetta Fedele}
+\cfoot{\thepage}
+
+% Titolo e informazioni
+\title{Progetto finale di Reti Logiche}
+\author{Elisabetta Fedele - Matricola n. 865833}
+\date{Anno Accademico 2018/2019}
 
 
 \begin{document}
 
-\maketitle
-
-\newpage
-
-{\parindent=0pt
-
-The present document and all of the software
-in the accompanying distribution (which is contained in the directory
-{\tt id\_dist} and its subdirectories, or in the file
-{\tt id\_dist.tar.gz})\, is
-
-\bigskip
-
-Copyright \copyright\ 2014 by P.-G. Martinsson, V. Rokhlin,
-Y. Shkolnisky, and M. Tygert.
-
-\bigskip
-
-All rights reserved.
-
-\bigskip
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
-
-\begin{enumerate}
-\item Redistributions of source code must retain the above copyright
-notice, this list of conditions, and the following disclaimer.
-\item Redistributions in binary form must reproduce the above copyright
-notice, this list of conditions, and the following disclaimer in the
-documentation and/or other materials provided with the distribution.
-\item None of the names of the copyright holders may be used to endorse
-or promote products derived from this software without specific prior
-written permission.
-\end{enumerate}
-
-\bigskip
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
-EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNERS BE
-LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-}
-
-\newpage
-
+%\maketitle
+%========= Title Page
+\thispagestyle{empty} 
+\begin{titlepage}
+    \begin{center}
+       \vspace*{2cm}
+       {\LARGE Prova Finale (Progetto di Reti Logiche) [051228]} %%Replace this with the Title of your research
+       \vspace{1cm}
+    \begin{large}   
+    
+        
+        { Prof. Fabio Salice - Anno 2020/2021}
+       \vspace{8cm}
+        
+        {Elisabetta Fedele (Codice Persona 10631762 - Matricola 911320)\\Filippo Lazzati (Codice Persona 10629918 - Matricola 910614)}
+       \vspace{3cm}
+       
+    \end{large}  
+   \end{center}
+\end{titlepage}
 \tableofcontents
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%% INTRODUZIONE %%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pagebreak
+\section{Introduzione} \label{subsection-introduz}
+
+\subsection{Scopo del progetto}
+Sia data un’immagine 8 bit gray-scale di dimensione massima pari a 128 x 128 pixel. 
+\\L’obiettivo del progetto è l’implementazione di un componente hardware descritto in VHDL che, ricevuta in ingresso tale immagine e dei segnali di controllo, sia in grado di applicarvi l’algoritmo di equalizzazione fornito nelle specifiche e restituire in uscita i risultati.
+
+\subsection{Algoritmo di equalizzazione} \label{subsection-ob-vel}
+Equalizzare l’istogramma di un’immagine significa applicare una funzione di trasformazione ai pixel in essa contenuti con lo scopo di aumentare il contrasto globale.
+L’algoritmo utilizzato, una versione semplificata del più complesso algoritmo standard di equalizzazione, si articola nei seguenti passi:
+\vspace{3.5pt}
+\begin{enumerate}
+\item Ricerca del minimo valore (\verb^MIN_PIXEL_VALUE^) e del massimo valore (\verb^MAX_PIXEL_VALUE^) 
+\item Calcolo di delta value 
+\\$\verb^DELTA_VALUE^ = \verb^MAX_PIXEL_VALUE^ - \verb^MIN_PIXEL_VALUE^$
+\item Calcolo del valore di shift
+\\$\verb^SHIFT_LEVEL^ = 8 - \lfloor{\log_2 (\verb^DELTA_VALUE^ +1)}\rfloor $
+\item Trasformazione di ogni pixel
+\\$\verb^TEMP_PIXEL^ = (\verb^CURRENT_PIXEL_VALUE^ - \verb^MIN_PIXEL_VALUE^) << \verb^SHIFT_LEVEL^$
+\\$\verb^NEW_PIXEL_VALUE^ = min (255, \verb^TEMP_PIXEL^)$
+\end{enumerate}
+\vspace{3.5pt}
+Si consideri, per esempio, l' immagine e il relativo istogramma in Figura 1:
+\begin{figure}[h]
+\begin{subfigure}{0.4\textwidth}
+\includegraphics[width=0.7\linewidth]{Figures/duomo_pre.jpeg} 
+%\caption{Caption1}
+\label{fig:subim1}
+\end{subfigure}
+\begin{subfigure}{0.6\textwidth}
+\includegraphics[width=0.6\linewidth]{Figures/isto_duomo_pre.png}
+%\caption{Caption 2}
+\label{fig:subim2}
+\end{subfigure}
+\caption{Immagine originale e relativo istogramma}
+\label{fig:image2}
+\end{figure}
+\vspace{3.5pt}
+\\Nell’istogramma si nota come la distribuzione dei grigi nell’immagine non è uniforme, ma è spostata verso i valori alti. Questo lo si può anche comprendere osservando l'immagine, che risulta sbiadita. 
+\\Il risultato dell'applicazione dell'algoritmo è mostrato in Figura 2, dove il nuovo istogramma mostra come i valori di intensità dei singoli pixel sono stati ridistribuiti in modo da coprire l'intero range proposto.
+%\newpage
+\begin{figure}[h]
+\begin{subfigure}{0.4\textwidth}
+\includegraphics[width=0.7\linewidth]{Figures/duomo_post.jpg} 
+%\caption{Caption1}
+\label{fig:subim1}
+\end{subfigure}
+\begin{subfigure}{0.6\textwidth}
+\includegraphics[width=0.6\linewidth]{Figures/isto_duomo_post.png}
+%\caption{Caption 2}
+\label{fig:subim2}
+\end{subfigure}
+\caption{Immagine trasformata e relativo istogramma}
+\label{fig:image2}
+\end{figure}
+%\vspace{3.5pt}
+\newpage
+
+\subsection{Interfaccia componente}
+Il componente presenta la seguente interfaccia:
+\begin{figure}[h]
+\includegraphics[width=0.7\linewidth]{Figures/entity.png} 
+%\caption{}
+\label{fig:subim1}
+
+\end{figure}
+\\Nello specifico:
+\begin{itemize}
+    \item \verb^i_clk^ è il segnale di \verb^CLOCK^ in ingresso;
+    \item \verb^i_rst^ è è il segnale di \verb^RESET^ che inizializza la macchina;
+    \item \verb^i_start^ è il segnale di \verb^START^;
+    \item \verb^i_data^ è il segnale che arriva dalla memoria in seguito ad una richiesta di lettura;
+    \item \verb^o_address^ è il segnale di uscita che manda l’indirizzo alla memoria;
+    \item \verb^o_done^ è il segnale di fine elaborazione;
+    \item \verb^o_en^ è il segnale di \verb^ENABLE^ da inviare alla memoria per poter comunicare sia in lettura che in scrittura;
+    \item \verb^o_we^ è il segnale di \verb^WRITE ENABLE^ per abilitare la scrittura in memoria;
+    \item \verb^o_data^ è il segnale di uscita dal componente verso la memoria.
+\end{itemize}
+
+\newpage
+\subsection{Dati e descrizione memoria}
+I dati, ciascuno di dimensione 8 bit, sono memorizzati in una memoria con indirizzamento al byte nel seguente modo:
+\renewcommand{\arraystretch}{2}
+\definecolor{Gray}{gray}{0.95}
+\newcolumntype{g}{>{\columncolor{Gray}}m{15em}}
+\begin{center}
+\centering
+\begin{tabular}{l c}
+&
+\hspace{-2.5cm}
+\begin{tabular}[c]{ | g | c  l } 
+\cline{0-0}
+Numero colonne (C) & & Indirizzo 0 \\ 
+\cline{0-0}
+Numero righe (R) & & Indirizzo 1\\ 
+\cline{0-0}
+\end{tabular}\\
+Pixel immagine originale & 
+\hspace{-1.6cm}
+$\left\{
+\begin{tabular}[c]{ | g | c  l } 
+Pixel 1  & & Indirizzo 2\\ 
+\cline{0-0}
+Pixel 2 \\
+\cline{0-0}
+...\\ 
+\cline{0-0}
+Pixel CxR  & & Indirizzo 1 + CxR\\
+\cline{0-0}
+\end{tabular}
+\right.\kern-\nulldelimiterspace$ \\
+Pixel immagine originale &
+\hspace{-0.4cm}
+$\left\{
+\begin{tabular}[c]{ | g | c  l } 
+Pixel 1  & & Indirizzo 2 + CxR\\ 
+\cline{0-0}
+Pixel 2  & & Indirizzo 3 + CxR\\ 
+\cline{0-0}
+...\\ 
+\cline{0-0}
+Pixel CxR & & Indirizzo 2 + CxR + CxR\\
+\cline{0-0}
+\end{tabular}
+\right.\kern-\nulldelimiterspace$
+\end{tabular}
+\end{center}
+Nei primi due byte sono presenti rispettivamente il numero di colonne e righe dell'immagine da analizzare.\\
+I vari pixel, ciascuno di 8 bit, sono memorizzati in memoria a partire dalla posizione 2.\\
+I pixel dell' immagine equalizzata, invece, vengono inseriti in memoria a partire dalla posizione 2+(C*R)
+
+
+\vspace{4mm}
+%\titlerule[0.4pt]
+\subsection{Protocollo di inizio e fine computazione}
+Quando il segnale di ingresso \verb^i_start^ viene portato a 1, il componente progettato inizia la computazione spostandosi nello stato \verb^WAIT^ in cui inizia a richiedere dati in memoria. Il segnale \verb^i_start^ rimmarrà alto fino a quando \verb^o_done^ non verrà portato alto. 
+\\Dopo aver scritto l'intero risultato in memoria, il componente alza a 1 il segnale di \verb^o_done^, per segnalare la fine dell'elaborazione. Il segnale \verb^o_done^ rimane alto fino a quando il segnale di \verb^i_start^ non viene riportato a 0; dopodichè anche \verb^o_done^ viene abbassato. Nell'intervallo di tempo durante cui \verb^i_start^ = 0 e \verb^o_done^ = 1 non può essere dato nessun nuovo segnale di \verb^START^.
+
+\subsection{Protocollo di accesso alla memoria}
+Durante la computazione posso accedere in memoria all'indirizzo indicato in \verb^o_address^ sia in lettura che in scrittura. In particolare:
+\begin{itemize}
+    \item Se \verb^o_en^=1 e \verb^o_we^=0 leggerò dalla memoria il dato contenuto nel segnale \verb^i_data^
+    \item Se \verb^o_en^=1 e \verb^o_we^=1 scriverò in memoria il dato contenuto nel segnale \verb^o_data^
+\end{itemize}
+
+
+
+
 \newpage
 
 
 
-\hrule
-
-\medskip
-
-\centerline{\Large \bf IMPORTANT}
-
-\medskip
-
-\hrule
-
-\medskip
-
-\noindent At the minimum, please read Subsection~\ref{warning}
-and Section~\ref{naming} below, and beware that the {\it N.B.}'s
-in the source code comments highlight key information about the routines;
-{\it N.B.} stands for {\it nota bene} (Latin for ``note well'').
-
-\medskip
-
-\hrule
-
-\bigskip
 
 
 
-\section{Introduction}
-
-This software distribution provides Fortran routines
-for computing low-rank approximations to matrices,
-in the forms of interpolative decompositions (IDs)
-and singular value decompositions (SVDs).
-The routines use algorithms based on the ID.
-The ID is also commonly known as
-the approximation obtained via skeletonization,
-the approximation obtained via subsampling,
-and the approximation obtained via subset selection.
-The ID provides many advantages in many applications,
-and we suspect that it will become increasingly popular
-once tools for its computation become more widely available.
-This software distribution includes some such tools,
-as well as tools for computing low-rank approximations
-in the form of SVDs.
-Section~\ref{defs} below defines IDs and SVDs,
-and provides references to detailed discussions of the algorithms
-used in this software package.
-
-Please beware that normalized power iterations are better suited than
-the software in this distribution
-for computing principal component analyses
-in the typical case when the square of the signal-to-noise ratio
-is not orders of magnitude greater than both dimensions
-of the data matrix; see~\cite{halko-martinsson-tropp}.
-
-The algorithms used in this distribution have been optimized
-for accuracy, efficiency, and reliability;
-as a somewhat counterintuitive consequence, many must be randomized.
-All randomized codes in this software package succeed
-with overwhelmingly high probability (see, for example,
-\cite{halko-martinsson-tropp}).
-The truly paranoid are welcome to use the routines {\tt idd\_diffsnorm}
-and {\tt idz\_diffsnorm} to evaluate rapidly the quality
-of the approximations produced by the randomized algorithms
-(as done, for example, in the files
-{\tt idd\_a\_test.f}, {\tt idd\_r\_test.f}, {\tt idz\_a\_test.f},
-and {\tt idz\_r\_test.f} in the {\tt test} subdirectory
-of the main directory {\tt id\_dist}).
-In most circumstances, evaluating the quality of an approximation
-via routines {\tt idd\_diffsnorm} or {\tt idz\_diffsnorm} is much faster
-than forming the approximation to be evaluated. Still, we are unaware
-of any instance in which a properly-compiled routine failed to produce
-an accurate approximation.
-To facilitate successful compilation, we encourage the user
-to read the instructions in the next section,
-and to read Section~\ref{naming}, too.
 
 
 
-\section{Compilation instructions}
 
 
-Followed in numerical order, the subsections of this section
-provide step-by-step instructions for compiling the software
-under a Unix-compatible operating system.
 
 
-\subsection{Beware that default command-line flags may not be
-            sufficient for compiling the source codes!}
-\label{warning}
-
-The Fortran source codes in this distribution pass {\tt real*8}
-variables as integer variables, integers as {\tt real*8}'s,
-{\tt real*8}'s as {\tt complex*16}'s, and so on.
-This is common practice in numerical codes, and is not an error;
-be sure to provide the relevant command-line flags to the compiler
-(for example, run {\tt fort77} and {\tt f2c} with the flag {\tt -!P}).
-When following the compilation instructions
-in Subsection~\ref{makefile_edit} below,
-be sure to set {\tt FFLAGS} appropriately.
 
 
-\subsection{Install LAPACK}
-
-The SVD routines in this distribution depend on LAPACK.
-Before compiling the present distribution,
-create the LAPACK and BLAS archive (library) {\tt .a} files;
-information about installing LAPACK is available
-at {\tt http://www.netlib.org/lapack/} (and several other web sites).
 
 
-\subsection{Decompress and untar the file {\tt id\_dist.tar.gz}}
-
-At the command line, decompress and untar the file
-{\tt id\_dist.tar.gz} by issuing a command such as
-{\tt tar -xvvzf id\_dist.tar.gz}.
-This will create a directory named {\tt id\_dist}.
 
 
-\subsection{Edit the Makefile}
-\label{makefile_edit}
 
-The directory {\tt id\_dist} contains a file named {\tt Makefile}.
-In {\tt Makefile}, set the following:
-%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%% ARCHITETTURA %%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pagebreak
+\section{Architettura}
+Per la progettazione del componente è stata scelta l'implementazione tramite una macchina a stati finiti (FSM) di Mealy non completamente specificata. Infatti il valore delle uscite è funzione degli ingressi e per alcune transizioni è indifferente (DC).
+
+
+\subsection{FSM}
+%descrizone stati + disegnp
+La macchina è composta da 10 stati. Qui di seguito è fornita una breve descrizione qualitativa del loro funzionamento.
+%\vspace{-0.55cm} 
+\subsubsection{\textbf{IDLE} state}
+%\vspace{-0.6cm} 
+Stato iniziale e di default della macchina, in cui si attende il segnale di \verb^i_start^ e in cui si torna in caso di ricezione di un segnale di reset
+%\vspace{-0.55cm}
+\subsubsection{\textbf{WAIT} state}
+%\vspace{-0.6cm} 
+Stato in cui si attende la risposta della memoria in seguito alla richiesta di un dato
+%\vspace{-0.55cm}
+\subsubsection{\textbf{COL} state}
+%\vspace{-0.6cm} 
+Stato in cui si legge la prima cella di memoria, contenente il numero di colonne dell'immagine da trasformare
+%\vspace{-0.55cm}
+\subsubsection{\textbf{ROW} state}
+%\vspace{-0.6cm} 
+Stato in cui si legge la seconda cella di memoria, contenente il numero di righe dell'immagine da trasformare e si calcola il valore dell'indirizzo di memoria che contiene il valore dell'ultimo pixel. Tale valore viene memorizzato nel signal \verb^max_address^.
+%\vspace{-0.55cm}
+\subsubsection{\textbf{MIN\textunderscore MAX} state}
+%\vspace{-0.6cm} 
+Stato in cui viene calcolato il valore del minimo e del massimo pixel presente nell'immagine fornita. Ciò avviene scorrendo la memoria dall'indirizzo 2 all'indirizzo \verb^max_address^ calcolato in \verb^ROW^.\\Il valore del minimo e del massimo sono poi memorizzati rispettivamente nei signals \verb^min^ e \verb^max^).
+%\vspace{-0.55cm}
+\subsubsection{\textbf{ARG} state}
+%\vspace{-0.6cm} 
+Stato in cui viene calcolato il valore di max-min+1 e viene salvato nel signal delta\textunderscore value.
+%\vspace{-0.55cm}
+\subsubsection{\textbf{LOG} state}
+%\vspace{-0.6cm} 
+Stato in cui viene calcolato lo shift level il cui valore viene salvato nel signal shift\textunderscore value.
+%\vspace{-0.55cm}
+\subsubsection{\textbf{UPDATE\textunderscore R} state}
+%\vspace{-0.6cm} 
+Stato in cui vengono letti uno alla volta i valori originali dei pixel, che vengono poi modificati e salvati nella variabile temp\textunderscore pixel\textunderscore shifted in attesa di essere salvati in memoria da UPDATE\textunderscore W.
+%\vspace{-0.55cm}
+\subsubsection{\textbf{UPDATE\textunderscore W} state}
+%\vspace{-0.6cm}
+Stato in cui vengono salvati in memoria (uno per volta) i valori dei pixel dell'immagine trasformata. Al termine della computazione, prima che avvenga la transizione verso DONE, setta tutti i segnali e le uscite ai valori di default.
+%\vspace{-0.55cm}
+\subsubsection{\textbf{DONE state}}
+%\vspace{-0.6cm}
+Stato per la terminazione di un’istanza di computazione che riporta allo stato di IDLE per rendere il modulo disponibile a ricevere nuove immagini.
+
+\newpage
+\begin{figure}[H] % ’ht’ tells LaTeX to place the figure ’here’ or at the top of the page
+    \centering % centers the figure
+    \begin{tikzpicture}[->,
+state/.style={
+draw,
+fill=white,
+circle, 
+minimum width= {width("UPDATE")},
+font=\tiny}]
+    \node[state] (q1) {\tiny IDLE};
+    \node[state, below of=q1, yshift=-1.5cm] (q2) {\tiny COL};
+    \node[state, below of=q2, yshift=-1.5cm] (q3) {\tiny ROW};
+    \node[state, below of=q3, yshift=-1.5cm] (q4) {\tiny MIN\textunderscore MAX};
+    \node[state, below of=q4, yshift=-1.5cm] (q5) {\tiny ARG};
+    \node[state, below of=q5, yshift=-1.5cm] (q6) {\tiny LOG};
+    \node[state, below of=q6, yshift=-1.5cm] (q7) {\tiny UPDATE\textunderscore R};
+    \node[state, below of=q7, yshift=-1.5cm] (q8) {\tiny UPDATE\textunderscore W};
+    \node[state, below of=q8, yshift=-1.5cm] (q9) {\tiny DONE};
+    \node[state, right of=q3, xshift=9cm] (q10) {\tiny WAIT};
+    \draw   (q1) edge[bend left, below] node{} (q10)
+            (q2) edge[below] node{} (q10)
+            (q10) edge[bend right, above] node [above, pos=0.7]{\tiny state\textunderscore return = COL} (q2) 
+            (q3) edge[bend right=10, below] node{} (q10)
+            (q10) edge[above] node[sloped, above,pos=0.5]{\tiny state\textunderscore return = ROW} (q3)
+            (q10) edge[below] node[sloped, above,pos=0.75]{\tiny state\textunderscore return = MIN\textunderscore MAX} (q4)
+            (q4) edge[bend right=10,below] node[below,pos=0.2]{\tiny state\textunderscore count $\neq$ max\textunderscore address+1} (q10)
+            (q4) edge[below] node[right]{\tiny state\textunderscore count = max\textunderscore address+1} (q5)
+            (q5) edge[below] node{} (q6)
+            (q6) edge[above] node{} (q10)
+            (q10) edge[below] node[sloped, below,pos=0.5]{\tiny state\textunderscore return = UPDATE\textunderscore READ} (q7)
+            (q7) edge[above] node{} (q8)
+            (q8) edge[bend right, above] node[sloped, below,pos=0.5]{\tiny count $\neq$ max\textunderscore address-1} (q10)
+            (q8) edge[above] node[right,pos=0.5]{\tiny count = max\textunderscore address-1} (q9)
+            (q9) edge[bend left,above] node{} (q1);
+\end{tikzpicture}
+    \caption{FSM}
+    \label{fig:my_label}
+\end{figure}
+\newpage
+\subsection{Uscite di default}
+Determinati segnali di uscita non sono rilevanti in determinati casi. In particolare:
 \begin{itemize}
-\item {\tt FC} is the Fortran compiler.
-\item {\tt FFLAGS} is the set of command-line flags
-      (specifying optimization settings, for example)
-      for the Fortran compiler specified by {\tt FC};
-      please heed the warning in Subsection~\ref{warning} above!
-\item {\tt BLAS\_LIB} is the file-system path to the BLAS archive
-      (library) {\tt .a} file.
-\item {\tt LAPACK\_LIB} is the file-system path to the LAPACK archive
-      (library) {\tt .a} file.
-\item {\tt ARCH} is the archiver utility (usually {\tt ar}).
-\item {\tt ARCHFLAGS} is the set of command-line flags
-      for the archiver specified by {\tt ARCH} needed
-      to create an archive (usually {\tt cr}).
-\item {\tt RANLIB} is to be set to {\tt ranlib}
-      when {\tt ranlib} is available, and is to be set to {\tt echo}
-      when {\tt ranlib} is not available.
+    \item se \verb^i_start^ = '0': tutte le uscite del componente non sono rilevanti
+    \item se \verb^o_en^ = '1' e \verb^o_we^ = '0': l'uscita \verb'o_data' non è rilevante
+\end{itemize}
+Quando le uscite non sono rilevanti assumono un valore di default. \\Di seguito riportiamo i valori di default assegnati alle uscite e le motivazioni delle nostre scelte. 
+\begin{table}[H] % Nota viene usato: % 
+    \centering
+    \begin{tabu*} to 1.0\textwidth { |X[0.7c]|X[0.7c]|X[2.4c]|}
+        \hline
+        \textbf{Nome} & \textbf{Default} & \textbf{Motivazione}\\
+        \hline
+        \verb^o_address^ & others \Rightarrow ’0’ & L'indirizzo 0 è il primo indirizzo di lettura\\
+        \hline
+        \verb^o_en^ & 0 & Fino a quando \verb^i_start^ = '0' non accedo alla memoria\\
+        \hline
+        \verb^o_we^ & 0 & Il primo accesso alla memoria è in lettura\\
+        \hline
+        \verb^o_data^ & others \Rightarrow ’0’ & Scelta arbitraria\\
+        \hline
+        \verb^o_done^ & others \Rightarrow ’0’ & All'inizio dell'elaborazione deve valere 0\\
+        \hline
+    \end{tabu*}
+\end{table}
+
+
+
+
+\subsection{Variabili, signals e valori di default}
+Di seguito riportiamo i signals e le variabili utilizzate e i rispettivi valori di default a esse assegnati. 
+\begin{table}[H] % Nota viene usato: % 
+    \centering
+    \begin{tabu*} to 1.0\textwidth { |X[1.2c]|X[2.4c]|X[0.9c]|X[2.4c]|}
+        \hline
+        \textbf{Nome} & \textbf{Uso} & \textbf{Default} & \textbf{Motivazione}\\
+        \hline
+        \verb^min^ & Contiene minimo valore & 255 & Qualunque valore è \leq 255\\
+        \hline
+        \verb^max^ & Contiene massimo valore & 0 & Qualunque valore è \geq 0\\
+        \hline
+        \verb^count^ & Helper per leggere i pixel & 2 & I pixel iniziano dall'indirizzo 2\\
+        \hline
+        \verb^max_address^ & Contiene indirizzo fine lettura & 2 & I pixel iniziano dall'indirizzo 2\\
+        \hline
+        \verb^delta_value^ & Contiene \verb^DELTA_VALUE^ + 1 & others \Rightarrow ’0’ & Scelta arbitraria\\
+        \hline
+        \verb^shift_level^ & Contiene \verb^SHIFT_LEVEL^ & 0 & 0 \Rightarrow istogramma già equalizzato\\
+        \hline
+        \verb^state_return^ & Contiene il \verb^next_state^ di \verb^WAIT^ & \verb^IDLE^ & Scelta arbitraria\\
+        \hline
+        \verb^current_state^ & Contiene lo stato attuale & \verb^IDLE^ & Scelta arbitraria\\
+        \hline
+        \verb^col_count^ & Memorizza numero colonne & 0 & Scelta arbitraria\\
+        \hline
+        \verb^o_address_reg^ & Lettura dell’uscita \verb^o_address^ & others \Rightarrow ’0’ & Scelta arbitraria\\
+        \hline
+    \end{tabu*}
+\end{table}
+
+
+\newpage
+\subsection{Scelte implementative}
+%processi 
+Nella realizzazione del componente come FSM si è deciso di utilizzare due soli processi: \verb^state_reg^ e \verb^delta_lambda^.
+\begin{itemize}
+    \item Il process \verb^state_reg^ definisce dei registri parallelo-parallelo dotati di reset asincrono, che vengono scritti e letti in corrispondenza dei fronti di salita del clock (\verb^i_clk^), aggiornando rispettivamente il valore dello stato e dell’uscita. Si è deciso di realizzare un unico process unendo il registro di memorizzazione degli stati con quello delle uscite per una questione di leggibilità e sintesi, senza alcun vantaggio dal punto di vista dell’implementazione hardware.
+    \item Il process \verb^delta_lambda^ rappresenta la FSM e, analizzando lo stato presente e gli ingressi, determina lo stato successivo e le uscite
 \end{itemize}
 
 
-\subsection{Make and test the libraries}
 
-At the command line in a shell that adheres
-to the Bourne shell conventions for redirection, issue the command
-``{\tt make clean; make}'' to both create the archive (library)
-{\tt id\_lib.a} and test it.
-(In most modern Unix distributions, {\tt sh} is the Bourne shell,
-or else is fully compatible with the Bourne shell;
-the Korn shell {\tt ksh} and the Bourne-again shell {\tt bash}
-also use the Bourne shell conventions for redirection.)
-{\tt make} places the file {\tt id\_lib.a}
-in the directory {\tt id\_dist}; the archive (library) file
-{\tt id\_lib.a} contains machine code for all user-callable routines
-in this distribution.
+
+\subsection{Scelte di progettazione}
+Per l’implementazione del componente si utilizza la seguente FPGA: xc7a200tfbg484-1, appartenente alla famiglia Artix 7 prodotta dall’azienda Xilinx. Ha un’altezza di 1mm e occupa una superficie di 23x23mm. A seconda della versione cambia il range di temperature di lavoro possibili. Il suo speed range è -1, dunque la sua frequenza di lavoro interna massima è inferiore ai valori delle corrispondenti frequenze delle altre FPGA appartenenti alla medesima famiglia Artix 7.
 
 
 
-\section{Naming conventions}
-\label{naming}
 
-The names of routines and files in this distribution
-start with prefixes, followed by an underscore (``\_'').
-The prefixes are two to four characters in length,
-and have the following meanings:
-%
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%% SINTESI %%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pagebreak
+\section{Sintesi}
+\subsection{Area occupata}
+
+
+\subsection{Report di timing} %immagine percorso pessimo
+
+
+\subsection{Codifica degli stati utilizzata}
+
+
+\subsection{Warnings post synthesis}
+Tutti i warning generati dal tool di sintesi durante lo sviluppo sono stati risolti. Tra questi anche i più "comuni" come i warning per latch inferiti e warning per segnali presenti nel processo ma non inseriti nella sensivity list.\\
+Non è quindi presente alcun warning nella versione finale del componente.
+
+\subsection{Note aggiuntive sulla sintesi}
+Si è utilizzato il tool "Vivado 2020.2 WebPACK Edition" impostato con i parametri di default.
+
+\vspace{4mm}
+\titlerule[0.4pt]
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%% SIMULAZIONI %%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pagebreak
+\section{Simulazioni}
+
+\subsection{Casi limite}
+In questo test bench viene provato un caso normale, senza casi limite, però ci permette di vedere alcune delle ottimizzazioni all'opera. Vediamo perciò in dettaglio il funzionamento del componente con questo test bench.
+
+\subsubsection{Dati del test bench}
+\begin{table}[H]
+    \begin{tabu*} to 0.8\textwidth { X[1.7l] X[1.1c] X[0.7c] X[1.1c]}
+        \textbf{Contenuto} & \textbf{Valore} & \textbf{Indirizzo} & \textbf{Da considerare} \\
+         Maschera d'ingresso & 1011'1001 (185) & 0 & - \\
+         X centroide 1 & 75 & 1 & \cmark \\
+         Y centroide 1 & 32 & 2 & \cmark \\
+         X centroide 2 & 111 & 3 & \xmark \\
+         Y centroide 2 & 213 & 4 & \xmark \\
+         X centroide 3 & 79 & 5 & \xmark \\
+         Y centroide 3 & 33 & 6 & \xmark \\
+         X centroide 4 & 1 & 7 & \cmark \\
+         Y centroide 4 & 33 & 8 & \cmark \\
+         X centroide 5 & 80 & 9 & \cmark \\
+         Y centroide 5 & 35 & 10 & \cmark \\
+         X centroide 6 & 12 & 11 & \cmark \\
+         Y centroide 6 & 254 & 12 & \cmark \\
+         X centroide 7 & 215 & 13 & \xmark \\
+         Y centroide 7 & 78 & 14 & \xmark \\
+         X centroide 8 & 211 & 15 & \cmark \\
+         Y centroide 8 & 121 & 16 & \cmark \\
+         X del punto da valutare & 78 & 17 & - \\
+         Y del punto da valutare & 33 & 18 & - \\
+    \end{tabu*}
+\end{table}
+
+\subsubsection{Elaborazione}
+\begin{figure}[H]
+    \centering
+    \caption{Test bench 0, waveform dei segnali in Behavioral Simulation}
+    \includegraphics[width=1.0\textwidth]{images/test-bench-0.png}
+    \label{fig:test-bench-0}
+\end{figure}
+Come si può vedere in figura \ref{fig:test-bench-0}, il componente impiega soltanto 11 cicli di clock dalla ricezione del segnale di start fino alla segnalazione di fine con \verb^o_done^.\\
+Vediamo cosa succede in questi 11 cicli di clock con cui il componente arriva al risultato finale:
+\renewcommand{\labelenumi}{\Roman{enumi}}
+\begin{enumerate}
+    \item Alla ricezione del segnale di start la FSM del componente passa allo stato \verb^S_START^, qui manda come indirizzo di lettura l'indirizzo 0.
+    \item La FSM passa allo stato \verb^S_INPUT_MASK^. Il componente riceve il contenuto della cella di memoria 0: 185. Questa è la maschera d'ingresso che verrà salvata nel relativo registro. Infine manda come indirizzo di lettura l'indirizzo 17.
+    \item La FSM passa allo stato \verb^S_COORD_X^. Il componente riceve il contenuto della cella di memoria 17: 78. Questa è la X del punto da valutare che verrà salvata nel relativo registro. Infine manda come indirizzo di lettura l'indirizzo 18.
+    \item La FSM passa allo stato \verb^S_COORD_Y^. Il componente riceve il contenuto della cella di memoria 18: 33. Questa è la Y del punto da valutare che verrà salvata nel relativo registro. Infine manda come indirizzo di lettura l'indirizzo 1.
+    \item La FSM passa allo stato \verb^S_CX^. Il componente riceve il contenuto della cella di memoria 1: 75. Questa è la X del primo centroide che verrà salvata nel relativo registro. Infine manda come indirizzo di lettura l'indirizzo 2.
+    \item La FSM passa allo stato \verb^S_CY^. Il componente riceve il contenuto della cella di memoria 2: 32. Questa è la Y del primo centroide con cui calcola la distanza minima col punto da valutare. Infine manda come indirizzo di lettura l'indirizzo 7, \textbf{vengono quindi saltati i centroidi 2 e 3 siccome non sono da considerare per la maschera}.
+    \item La FSM passa allo stato \verb^S_CX^. Il componente riceve il contenuto della cella di memoria 7: 1. \textbf{La distanza sulle ascisse tra questo centroide e il punto da valutare è maggiore della distanza minima. Perciò si passa al centroide successivo}. Manda quindi come indirizzo di lettura l'indirizzo 9.
+    \item La FSM rimane nello stato \verb^S_CX^. Il componente riceve il contenuto della cella di memoria 9: 80. Questa è la X del quinto centroide che verrà salvata nel relativo registro. Infine manda come indirizzo di lettura l'indirizzo 10.
+    \item La FSM passa allo stato \verb^S_CY^. Il componente riceve il contenuto della cella di memoria 10: 35. Questa è la Y del quinto centroide con cui calcola la distanza dal punto da valutare. Si trova che questa distanza è equivalente a quella minima, viene perciò attivato il quinto bit nella maschera di uscita temporanea. Infine manda come indirizzo di lettura l'indirizzo 11.
+    \item La FSM passa allo stato \verb^S_CX^. Il componente riceve il contenuto della cella di memoria 11: 12. \textbf{La distanza sulle ascisse tra questo centroide e il punto da valutare è maggiore della distanza minima. Perciò si passa al centroide successivo}. Manda quindi come indirizzo di lettura l'indirizzo 15, \textbf{viene saltato il centroide 6 disattivato nella maschera}.
+    \item La FSM rimane nello stato \verb^S_CX^. Il componente riceve il contenuto della cella di memoria 15: 211. \textbf{Anche qui la distanza sulle ascisse è maggiore della distanza minima}. Abbiamo perciò raggiunto il risultato finale: 0001'0001 (17). Esso viene mandato in scrittura alla RAM nella cella con indirizzo 19.
+\end{enumerate}
+
+\subsubsection{Post-Synthesis Timing Simulation}
+Vediamo per questo test bench il comportamento del componente una volta sintetizzato.
+\begin{figure}[H]
+    \centering
+    \caption{Test bench 0, waveform dei segnali in Post-Synthesis Timing Simulation}
+    \includegraphics[width=1.0\textwidth]{images/test-bench-0-timing.png}
+    \label{fig:test-bench-0-timing}
+\end{figure}
+\noindent I "don't care" spariscono e sono rimpiazzati da valori reali, questi valori sono ininfluenti e sono dati dalle ottimizzazioni fatte dal tool di sintesi. Inoltre sono comparse alcune alee statiche: di tipo 0 sul segnale \verb^o_we^ e di tipo 1 sul segnale \verb^o_en^. Queste alee sono ininfluenti per il risultato in quanto questi segnali sono usati in modo sincrono: conta soltanto il loro valore nell'intorno del fronte di salita del clock.
+
+\subsection{Test Bench 1 (un solo bit attivato nella maschera d'ingresso)}
+Con questo test bench si è voluto testare l'ottimizzazione n.2 della sezione \ref{subsection-ob-vel} a pagina \pageref{subsection-ob-vel}. Si è testato in realtà tutti i 9 casi possibili (zero bit attivati, un bit attivato in 8 possibili posizioni) ma vediamo soltanto uno di questi casi in quanto poi gli altri sono equivalenti.
+
+\subsubsection{Dati del test bench}
+\begin{table}[H]
+    \begin{tabu*} to 0.8\textwidth { X[1.7l] X[1.1c] X[0.7c] X[1.1c]}
+        \textbf{Contenuto} & \textbf{Valore} & \textbf{Indirizzo} & \textbf{Da considerare} \\
+        Maschera d'ingresso & 1000'0000 (128) & 0 & - \\
+        ... & ... & ... & \xmark \\
+        X centroide 8 & 25 & 1 & \cmark \\
+        Y centroide 8 & 23 & 2 & \cmark \\
+        X del punto da valutare & 86 & 17 & - \\
+        Y del punto da valutare & 129 & 18 & - \\
+    \end{tabu*}
+\end{table}
+
+\subsubsection{Elaborazione}
+\begin{figure}[H]
+    \centering
+    \caption{Test bench 1, waveform dei segnali in Behavioral Simulation}
+    \includegraphics[width=0.6\textwidth]{images/test-bench-1.png}
+    \label{fig:test-bench-1}
+\end{figure}
+Come si può vedere in figura \ref{fig:test-bench-1}, il componente impiega soltanto 2 cicli di clock dalla ricezione del segnale di start fino alla segnalazione di fine con \verb^o_done^.\\
+Vediamo cosa succede in questi 2 cicli di clock con cui il componente arriva al risultato finale:
+\renewcommand{\labelenumi}{\Roman{enumi}}
+\begin{enumerate}
+    \item Alla ricezione del segnale di start la FSM del componente passa allo stato \verb^S_START^ qui manda come indirizzo di lettura l'indirizzo 0.
+    \item La FSM passa allo stato \verb^S_INPUT_MASK^. Il componente riceve il contenuto della cella di memoria 0: 128. A questo punto la funzionalità di assegnamento del segnale \verb^is_immediate^ riconosce che la maschera d'ingresso è una potenza di due. Ciò viene riconosciuto se \(128\&(128-1)\) dà come risultato 0, ed effettivamente si trova che 1000'0000 \& 0111'1111 = 0000'0000. Si è quindi raggiunto il risultato finale che non è altro che la maschera d'ingresso stessa: 128.  Esso viene mandato in scrittura alla RAM nella cella con indirizzo 19.
+\end{enumerate}
+
+\subsection{Altri test bench}
+Sono stati creati altri test bench per testare alcuni casi limite o per controllare la robustezza del componente. Non li vediamo in dettaglio siccome alla fine seguono tutti lo stesso principio di esecuzione.
 \begin{itemize}
-\item The first two letters are always ``{\tt id}'',
-      the name of this distribution.
-\item The third letter (when present) is either ``{\tt d}''
-      or ``{\tt z}'';
-      ``{\tt d}'' stands for double precision ({\tt real*8}),
-      and ``{\tt z}'' stands for double complex ({\tt complex*16}).
-\item The fourth letter (when present) is either ``{\tt r}''
-      or ``{\tt p}'';
-      ``{\tt r}'' stands for specified rank,
-      and ``{\tt p}'' stands for specified precision.
-      The specified rank routines require the user to provide
-      the rank of the approximation to be constructed,
-      while the specified precision routines adjust the rank adaptively
-      to attain the desired precision.
+    \item Test bench in cui la distanza del punto da valutare coi centroidi è molto alta e tale per cui si devono usare 8 + 1 bit. Si è usato quindi dati in cui il punto da valutare ha ascissa e ordinate dal valore molto basso mentre per i centroidi si è usato sia per la X che la Y valori maggiori di 200.
+    \item Test bench in cui alcuni centroidi sono a distanza 0 con il punto da valutare.
+    \item Test bench in cui tutti i centroidi sono da considerare e hanno la stessa distanza col punto da valutare (maschera di uscita: 1111'1111).
+    \item Test bench in cui si controlla il corretto funzionamento del componente a seguito di elaborazioni successive senza segnali di reset.
+    \item Test bench in cui si controlla il corretto funzionamento del componente quando, durante una elaborazione, viene mandato un segnale di reset.
+    \item Infine sono stati creati una decina di altri test che non vanno a verificare casi particolari ma semplicemente casi normali con dati diversi. Questi test sono stati progettati in modo che ogni bit nella maschera di uscita venga testato almeno una volta.
 \end{itemize}
-
-For example, {\tt iddr\_aid} is a {\tt real*8} routine which computes
-an approximation of specified rank.
-{\tt idz\_snorm} is a {\tt complex*16} routine.
-{\tt id\_randperm} is yet another routine in this distribution.
-
-
-
-\section{Example programs}
-
-For examples of how to use the user-callable routines
-in this distribution, see the source codes in subdirectory {\tt test}
-of the main directory {\tt id\_dist}.
-
-
-
-\section{Directory structure}
-
-The main {\tt id\_dist} directory contains a Makefile,
-the auxiliary text files {\tt README.txt} and {\tt size.txt},
-and the following subdirectories, described in the subsections below:
-%
-\begin{enumerate}
-\item {\tt bin}
-\item {\tt development}
-\item {\tt doc}
-\item {\tt src}
-\item {\tt test}
-\item {\tt tmp}
-\end{enumerate}
-%
-If a ``{\tt make all}'' command has completed successfully,
-then the main {\tt id\_dist} directory will also contain
-an archive (library) file {\tt id\_lib.a} containing machine code
-for all of the user-callable routines.
-
-
-\subsection{Subdirectory {\tt bin}}
-
-Once all of the libraries have been made via the Makefile
-in the main {\tt id\_dist} directory,
-the subdirectory {\tt bin} will contain object files (machine code),
-each compiled from the corresponding file of source code
-in the subdirectory {\tt src} of {\tt id\_dist}.
-
-
-\subsection{Subdirectory {\tt development}}
-
-Each Fortran file in the subdirectory {\tt development}
-(except for {\tt dfft.f} and {\tt prini.f})
-specifies its dependencies at the top, then provides a main program
-for testing and debugging, and finally provides source code
-for a library of user-callable subroutines.
-The Fortran file {\tt dfft.f} is a copy of P. N. Swarztrauber's FFTPACK library
-for computing fast Fourier transforms.
-The Fortran file {\tt prini.f} is a copy of V. Rokhlin's library
-of formatted printing routines.
-Both {\tt dfft.f} (version 4) and {\tt prini.f} are in the public domain.
-The shell script {\tt RUNME.sh} runs shell scripts {\tt make\_src.sh}
-and {\tt make\_test.sh}, which fill the subdirectories {\tt src}
-and {\tt test} of the main directory {\tt id\_dist}
-with source codes for user-callable routines
-and with the main program testing codes.
-
-
-\subsection{Subdirectory {\tt doc}}
-
-Subdirectory {\tt doc} contains this documentation,
-supplementing comments in the source codes.
-
-
-\subsection{Subdirectory {\tt src}}
-
-The files in the subdirectory {\tt src} provide source code
-for software libraries. Each file in the subdirectory {\tt src}
-(except for {\tt dfft.f} and {\tt prini.f}) is
-the bottom part of the corresponding file
-in the subdirectory {\tt development} of {\tt id\_dist}.
-The file {\tt dfft.f} is just a copy
-of P. N. Swarztrauber's FFTPACK library
-for computing fast Fourier transforms.
-The file {\tt prini.f} is a copy of V. Rokhlin's library
-of formatted printing routines.
-Both {\tt dfft.f} (version 4) and {\tt prini.f} are in the public domain.
-
-
-\subsection{Subdirectory {\tt test}}
-
-The files in subdirectory {\tt test} provide source code
-for testing and debugging. Each file in subdirectory {\tt test} is
-the top part of the corresponding file
-in subdirectory {\tt development} of {\tt id\_dist},
-and provides a main program and a list of its dependencies.
-These codes provide examples of how to call the user-callable routines.
-
-
-
-\section{Catalog of the routines}
-
-The main routines for decomposing {\tt real*8} matrices are:
-%
-\begin{enumerate}
-%
-\item IDs of arbitrary (generally dense) matrices:
-{\tt iddp\_id}, {\tt iddr\_id}, {\tt iddp\_aid}, {\tt iddr\_aid}
-%
-\item IDs of matrices that may be rapidly applied to arbitrary vectors
-(as may the matrices' transposes):
-{\tt iddp\_rid}, {\tt iddr\_rid}
-%
-\item SVDs of arbitrary (generally dense) matrices:
-{\tt iddp\_svd}, {\tt iddr\_svd}, {\tt iddp\_asvd},\\{\tt iddr\_asvd}
-%
-\item SVDs of matrices that may be rapidly applied to arbitrary vectors
-(as may the matrices' transposes):
-{\tt iddp\_rsvd}, {\tt iddr\_rsvd}
-%
-\end{enumerate}
-
-Similarly, the main routines for decomposing {\tt complex*16} matrices
-are:
-%
-\begin{enumerate}
-%
-\item IDs of arbitrary (generally dense) matrices:
-{\tt idzp\_id}, {\tt idzr\_id}, {\tt idzp\_aid}, {\tt idzr\_aid}
-%
-\item IDs of matrices that may be rapidly applied to arbitrary vectors
-(as may the matrices' adjoints):
-{\tt idzp\_rid}, {\tt idzr\_rid}
-%
-\item SVDs of arbitrary (generally dense) matrices:
-{\tt idzp\_svd}, {\tt idzr\_svd}, {\tt idzp\_asvd},\\{\tt idzr\_asvd}
-%
-\item SVDs of matrices that may be rapidly applied to arbitrary vectors
-(as may the matrices' adjoints):
-{\tt idzp\_rsvd}, {\tt idzr\_rsvd}
-%
-\end{enumerate}
-
-This distribution also includes routines for constructing pivoted $QR$
-decompositions (in {\tt idd\_qrpiv.f} and {\tt idz\_qrpiv.f}), for
-estimating the spectral norms of matrices that may be applied rapidly
-to arbitrary vectors as may their adjoints (in {\tt idd\_snorm.f}
-and {\tt idz\_snorm.f}), for converting IDs to SVDs (in
-{\tt idd\_id2svd.f} and {\tt idz\_id2svd.f}), and for computing rapidly
-arbitrary subsets of the entries of the discrete Fourier transforms
-of vectors (in {\tt idd\_sfft.f} and {\tt idz\_sfft.f}).
-
-
-\subsection{List of the routines}
-
-The following is an alphabetical list of the routines
-in this distribution, together with brief descriptions
-of their functionality and the names of the files containing
-the routines' source code:
-
-\begin{center}
-%
-\tablehead{\bf Routine & \bf Description & \bf Source file \\}
-\tabletail{\hline}
-%
-\begin{supertabular}{>{\raggedright}p{1.2in} p{.53\textwidth} l}
-%
-\hline
-{\tt id\_frand} & generates pseudorandom numbers drawn uniformly from
-the interval $[0,1]$; this routine is more efficient than routine
-{\tt id\_srand}, but cannot generate fewer than 55 pseudorandom numbers
-per call & {\tt id\_rand.f} \\\hline
-%
-{\tt id\_frandi} & initializes the seed values for routine
-{\tt id\_frand} to specified values & {\tt id\_rand.f} \\\hline
-%
-{\tt id\_frando} & initializes the seed values for routine
-{\tt id\_frand} to their original, default values & {\tt id\_rand.f}
-\\\hline
-%
-{\tt id\_randperm} & generates a uniformly random permutation &
-{\tt id\_rand.f} \\\hline
-%
-{\tt id\_srand} & generates pseudorandom numbers drawn uniformly from
-the interval $[0,1]$; this routine is less efficient than routine
-{\tt id\_frand}, but can generate fewer than 55 pseudorandom numbers
-per call & {\tt id\_rand.f} \\\hline
-%
-{\tt id\_srandi} & initializes the seed values for routine
-{\tt id\_srand} to specified values & {\tt id\_rand.f} \\\hline
-%
-{\tt id\_srando} & initializes the seed values for routine
-{\tt id\_srand} to their original, default values & {\tt id\_rand.f}
-\\\hline
-%
-{\tt idd\_copycols} & collects together selected columns of a matrix &
-{\tt idd\_id.f} \\\hline
-%
-{\tt idd\_diffsnorm} & estimates the spectral norm of the difference
-between two matrices specified by routines for applying the matrices
-and their transposes to arbitrary vectors; this routine uses the power
-method with a random starting vector & {\tt idd\_snorm.f} \\\hline
-%
-{\tt idd\_enorm} & calculates the Euclidean norm of a vector &
-{\tt idd\_snorm.f} \\\hline
-%
-{\tt idd\_estrank} & estimates the numerical rank of an arbitrary
-(generally dense) matrix to a specified precision; this routine is
-randomized, and must be initialized with routine {\tt idd\_frmi} &
-{\tt iddp\_aid.f} \\\hline
-%
-{\tt idd\_frm} & transforms a vector into a vector which is
-sufficiently scrambled to be subsampled, via a composition of Rokhlin's
-random transform, random subselection, and a fast Fourier transform &
-{\tt idd\_frm.f} \\\hline
-%
-{\tt idd\_frmi} & initializes routine {\tt idd\_frm} & {\tt idd\_frm.f}
-\\\hline
-%
-{\tt idd\_getcols} & collects together selected columns of a matrix
-specified by a routine for applying the matrix to arbitrary vectors &
-{\tt idd\_id.f} \\\hline
-%
-{\tt idd\_house} & calculates the vector and scalar needed to apply the
-Householder transformation reflecting a given vector into its first
-entry & {\tt idd\_house.f} \\\hline
-%
-{\tt idd\_houseapp} & applies a Householder matrix to a vector &
-{\tt idd\_house.f} \\\hline
-%
-{\tt idd\_id2svd} & converts an approximation to a matrix in the form
-of an ID into an approximation in the form of an SVD &
-{\tt idd\_id2svd.f} \\\hline
-%
-{\tt idd\_ldiv} & finds the greatest integer less than or equal to a
-specified integer, that is divisible by another (larger) specified
-integer & {\tt idd\_sfft.f} \\\hline
-%
-{\tt idd\_pairsamps} & calculates the indices of the pairs of integers
-that the individual integers in a specified set belong to &
-{\tt idd\_frm.f} \\\hline
-%
-{\tt idd\_permmult} & multiplies together a bunch of permutations &
-{\tt idd\_qrpiv.f} \\\hline
-%
-{\tt idd\_qinqr} & reconstructs the $Q$ matrix in a $QR$ decomposition
-from the output of routines {\tt iddp\_qrpiv} or {\tt iddr\_qrpiv} &
-{\tt idd\_qrpiv.f} \\\hline
-%
-{\tt idd\_qrmatmat} & applies to multiple vectors collected together as
-a matrix the $Q$ matrix (or its transpose) in the $QR$ decomposition of
-a matrix, as described by the output of routines {\tt iddp\_qrpiv} or
-{\tt iddr\_qrpiv}; to apply $Q$ (or its transpose) to a single vector
-without having to provide a work array, use routine {\tt idd\_qrmatvec}
-instead & {\tt idd\_qrpiv.f} \\\hline
-%
-{\tt idd\_qrmatvec} & applies to a single vector the $Q$ matrix (or its
-transpose) in the $QR$ decomposition of a matrix, as described by the
-output of routines {\tt iddp\_qrpiv} or {\tt iddr\_qrpiv}; to apply $Q$ 
-(or its transpose) to several vectors efficiently, use routine
-{\tt idd\_qrmatmat} instead & {\tt idd\_qrpiv.f} \\\hline
-%
-{\tt idd\_random\_} {\tt transf} & applies rapidly a
-random orthogonal matrix to a user-supplied vector & {\tt id\_rtrans.f}
-\\\hline
-%
-{\tt idd\_random\_ transf\_init} & \raggedright initializes routines
-{\tt idd\_random\_transf} and {\tt idd\_random\_transf\_inverse} &
-{\tt id\_rtrans.f} \\\hline
-%
-{\tt idd\_random\_} {\tt transf\_inverse} & applies
-rapidly the inverse of the operator applied by routine
-{\tt idd\_random\_transf} & {\tt id\_rtrans.f} \\\hline
-%
-{\tt idd\_reconid} & reconstructs a matrix from its ID &
-{\tt idd\_id.f} \\\hline
-%
-{\tt idd\_reconint} & constructs $P$ in the ID $A = B \, P$, where the
-columns of $B$ are a subset of the columns of $A$, and $P$ is the
-projection coefficient matrix, given {\tt list}, {\tt krank}, and
-{\tt proj} output by routines {\tt iddr\_id}, {\tt iddp\_id},
-{\tt iddr\_aid}, {\tt iddp\_aid}, {\tt iddr\_rid}, or {\tt iddp\_rid} &
-{\tt idd\_id.f} \\\hline
-%
-{\tt idd\_sfft} & rapidly computes a subset of the entries of the
-discrete Fourier transform of a vector, composed with permutation
-matrices both on input and on output & {\tt idd\_sfft.f} \\\hline
-%
-{\tt idd\_sffti} & initializes routine {\tt idd\_sfft} &
-{\tt idd\_sfft.f} \\\hline
-%
-{\tt idd\_sfrm} & transforms a vector into a scrambled vector of
-specified length, via a composition of Rokhlin's random transform,
-random subselection, and a fast Fourier transform & {\tt idd\_frm.f}
-\\\hline
-%
-{\tt idd\_sfrmi} & initializes routine {\tt idd\_sfrm} &
-{\tt idd\_frm.f} \\\hline
-%
-{\tt idd\_snorm} & estimates the spectral norm of a matrix specified by
-routines for applying the matrix and its transpose to arbitrary
-vectors; this routine uses the power method with a random starting
-vector & {\tt idd\_snorm.f} \\\hline
-%
-{\tt iddp\_aid} & computes the ID of an arbitrary (generally dense)
-matrix, to a specified precision; this routine is randomized, and must
-be initialized with routine {\tt idd\_frmi} & {\tt iddp\_aid.f}
-\\\hline
-%
-{\tt iddp\_asvd} & computes the SVD of an arbitrary (generally dense)
-matrix, to a specified precision; this routine is randomized, and must
-be initialized with routine {\tt idd\_frmi} & {\tt iddp\_asvd.f}
-\\\hline
-%
-{\tt iddp\_id} & computes the ID of an arbitrary (generally dense)
-matrix, to a specified precision; this routine is often less efficient
-than routine {\tt iddp\_aid} & {\tt idd\_id.f} \\\hline
-%
-{\tt iddp\_qrpiv} & computes the pivoted $QR$ decomposition of an
-arbitrary (generally dense) matrix via Householder transformations,
-stopping at a specified precision of the decomposition &
-{\tt idd\_qrpiv.f} \\\hline
-%
-{\tt iddp\_rid} & computes the ID, to a specified precision, of a
-matrix specified by a routine for applying its transpose to arbitrary
-vectors; this routine is randomized & {\tt iddp\_rid.f} \\\hline
-%
-{\tt iddp\_rsvd} & computes the SVD, to a specified precision, of a
-matrix specified by routines for applying the matrix and its transpose
-to arbitrary vectors; this routine is randomized & {\tt iddp\_rsvd.f}
-\\\hline
-%
-{\tt iddp\_svd} & computes the SVD of an arbitrary (generally dense)
-matrix, to a specified precision; this routine is often less efficient
-than routine {\tt iddp\_asvd} & {\tt idd\_svd.f} \\\hline
-%
-{\tt iddr\_aid} & computes the ID of an arbitrary (generally dense)
-matrix, to a specified rank; this routine is randomized, and must be
-initialized by routine {\tt iddr\_aidi} & {\tt iddr\_aid.f} \\\hline
-%
-{\tt iddr\_aidi} & initializes routine {\tt iddr\_aid} &
-{\tt iddr\_aid.f} \\\hline
-%
-{\tt iddr\_asvd} & computes the SVD of an arbitrary (generally dense)
-matrix, to a specified rank; this routine is randomized, and must be
-initialized with routine {\tt idd\_aidi} & {\tt iddr\_asvd.f}
-\\\hline
-%
-{\tt iddr\_id} & computes the ID of an arbitrary (generally dense)
-matrix, to a specified rank; this routine is often less efficient than
-routine {\tt iddr\_aid} & {\tt idd\_id.f} \\\hline
-%
-{\tt iddr\_qrpiv} & computes the pivoted $QR$ decomposition of an
-arbitrary (generally dense) matrix via Householder transformations,
-stopping at a specified rank of the decomposition & {\tt idd\_qrpiv.f}
-\\\hline
-%
-{\tt iddr\_rid} & computes the ID, to a specified rank, of a matrix
-specified by a routine for applying its transpose to arbitrary vectors;
-this routine is randomized & {\tt iddr\_rid.f} \\\hline
-%
-{\tt iddr\_rsvd} & computes the SVD, to a specified rank, of a matrix
-specified by routines for applying the matrix and its transpose to
-arbitrary vectors; this routine is randomized & {\tt iddr\_rsvd.f}
-\\\hline
-%
-{\tt iddr\_svd} & computes the SVD of an arbitrary (generally dense)
-matrix, to a specified rank; this routine is often less efficient than
-routine {\tt iddr\_asvd} & {\tt idd\_svd.f} \\\hline
-%
-{\tt idz\_copycols} & collects together selected columns of a matrix &
-{\tt idz\_id.f} \\\hline
-%
-{\tt idz\_diffsnorm} & estimates the spectral norm of the difference
-between two matrices specified by routines for applying the matrices
-and their adjoints to arbitrary vectors; this routine uses the power
-method with a random starting vector & {\tt idz\_snorm.f} \\\hline
-%
-{\tt idz\_enorm} & calculates the Euclidean norm of a vector &
-{\tt idz\_snorm.f} \\\hline
-%
-{\tt idz\_estrank} & estimates the numerical rank of an arbitrary
-(generally dense) matrix to a specified precision; this routine is
-randomized, and must be initialized with routine {\tt idz\_frmi} &
-{\tt idzp\_aid.f} \\\hline
-%
-{\tt idz\_frm} & transforms a vector into a vector which is
-sufficiently scrambled to be subsampled, via a composition of Rokhlin's
-random transform, random subselection, and a fast Fourier transform &
-{\tt idz\_frm.f} \\\hline
-%
-{\tt idz\_frmi} & initializes routine {\tt idz\_frm} & {\tt idz\_frm.f}
-\\\hline
-%
-{\tt idz\_getcols} & collects together selected columns of a matrix
-specified by a routine for applying the matrix to arbitrary vectors &
-{\tt idz\_id.f} \\\hline
-%
-{\tt idz\_house} & calculates the vector and scalar needed to apply the
-Householder transformation reflecting a given vector into its first
-entry & {\tt idz\_house.f} \\\hline
-%
-{\tt idz\_houseapp} & applies a Householder matrix to a vector &
-{\tt idz\_house.f} \\\hline
-%
-{\tt idz\_id2svd} & converts an approximation to a matrix in the form
-of an ID into an approximation in the form of an SVD &
-{\tt idz\_id2svd.f} \\\hline
-%
-{\tt idz\_ldiv} & finds the greatest integer less than or equal to a
-specified integer, that is divisible by another (larger) specified
-integer & {\tt idz\_sfft.f} \\\hline
-%
-{\tt idz\_permmult} & multiplies together a bunch of permutations &
-{\tt idz\_qrpiv.f} \\\hline
-%
-{\tt idz\_qinqr} & reconstructs the $Q$ matrix in a $QR$ decomposition
-from the output of routines {\tt idzp\_qrpiv} or {\tt idzr\_qrpiv} &
-{\tt idz\_qrpiv.f} \\\hline
-%
-{\tt idz\_qrmatmat} & applies to multiple vectors collected together as
-a matrix the $Q$ matrix (or its adjoint) in the $QR$ decomposition of
-a matrix, as described by the output of routines {\tt idzp\_qrpiv} or
-{\tt idzr\_qrpiv}; to apply $Q$ (or its adjoint) to a single vector
-without having to provide a work array, use routine {\tt idz\_qrmatvec}
-instead & {\tt idz\_qrpiv.f} \\\hline
-%
-{\tt idz\_qrmatvec} & applies to a single vector the $Q$ matrix (or its
-adjoint) in the $QR$ decomposition of a matrix, as described by the
-output of routines {\tt idzp\_qrpiv} or {\tt idzr\_qrpiv}; to apply $Q$ 
-(or its adjoint) to several vectors efficiently, use routine
-{\tt idz\_qrmatmat} instead & {\tt idz\_qrpiv.f} \\\hline
-%
-{\tt idz\_random\_ transf} & applies rapidly a random unitary matrix to
-a user-supplied vector & {\tt id\_rtrans.f} \\\hline
-%
-{\tt idz\_random\_ transf\_init} & \raggedright initializes routines
-{\tt idz\_random\_transf} and {\tt idz\_random\_transf\_inverse} &
-{\tt id\_rtrans.f} \\\hline
-%
-{\tt idz\_random\_ transf\_inverse} & applies rapidly the inverse of
-the operator applied by routine {\tt idz\_random\_transf} &
-{\tt id\_rtrans.f} \\\hline
-%
-{\tt idz\_reconid} & reconstructs a matrix from its ID &
-{\tt idz\_id.f} \\\hline
-%
-{\tt idz\_reconint} & constructs $P$ in the ID $A = B \, P$, where the
-columns of $B$ are a subset of the columns of $A$, and $P$ is the
-projection coefficient matrix, given {\tt list}, {\tt krank}, and
-{\tt proj} output by routines {\tt idzr\_id}, {\tt idzp\_id},
-{\tt idzr\_aid}, {\tt idzp\_aid}, {\tt idzr\_rid}, or {\tt idzp\_rid} &
-{\tt idz\_id.f} \\\hline
-%
-{\tt idz\_sfft} & rapidly computes a subset of the entries of the
-discrete Fourier transform of a vector, composed with permutation
-matrices both on input and on output & {\tt idz\_sfft.f} \\\hline
-%
-{\tt idz\_sffti} & initializes routine {\tt idz\_sfft} &
-{\tt idz\_sfft.f} \\\hline
-%
-{\tt idz\_sfrm} & transforms a vector into a scrambled vector of
-specified length, via a composition of Rokhlin's random transform,
-random subselection, and a fast Fourier transform & {\tt idz\_frm.f}
-\\\hline
-%
-{\tt idz\_sfrmi} & initializes routine {\tt idz\_sfrm} &
-{\tt idz\_frm.f} \\\hline
-%
-{\tt idz\_snorm} & estimates the spectral norm of a matrix specified by
-routines for applying the matrix and its adjoint to arbitrary
-vectors; this routine uses the power method with a random starting
-vector & {\tt idz\_snorm.f} \\\hline
-%
-{\tt idzp\_aid} & computes the ID of an arbitrary (generally dense)
-matrix, to a specified precision; this routine is randomized, and must
-be initialized with routine {\tt idz\_frmi} & {\tt idzp\_aid.f}
-\\\hline
-%
-{\tt idzp\_asvd} & computes the SVD of an arbitrary (generally dense)
-matrix, to a specified precision; this routine is randomized, and must
-be initialized with routine {\tt idz\_frmi} & {\tt idzp\_asvd.f}
-\\\hline
-%
-{\tt idzp\_id} & computes the ID of an arbitrary (generally dense)
-matrix, to a specified precision; this routine is often less efficient
-than routine {\tt idzp\_aid} & {\tt idz\_id.f} \\\hline
-%
-{\tt idzp\_qrpiv} & computes the pivoted $QR$ decomposition of an
-arbitrary (generally dense) matrix via Householder transformations,
-stopping at a specified precision of the decomposition &
-{\tt idz\_qrpiv.f} \\\hline
-%
-{\tt idzp\_rid} & computes the ID, to a specified precision, of a
-matrix specified by a routine for applying its adjoint to arbitrary
-vectors; this routine is randomized & {\tt idzp\_rid.f} \\\hline
-%
-{\tt idzp\_rsvd} & computes the SVD, to a specified precision, of a
-matrix specified by routines for applying the matrix and its adjoint
-to arbitrary vectors; this routine is randomized & {\tt idzp\_rsvd.f}
-\\\hline
-%
-{\tt idzp\_svd} & computes the SVD of an arbitrary (generally dense)
-matrix, to a specified precision; this routine is often less efficient
-than routine {\tt idzp\_asvd} & {\tt idz\_svd.f} \\\hline
-%
-{\tt idzr\_aid} & computes the ID of an arbitrary (generally dense)
-matrix, to a specified rank; this routine is randomized, and must be
-initialized by routine {\tt idzr\_aidi} & {\tt idzr\_aid.f} \\\hline
-%
-{\tt idzr\_aidi} & initializes routine {\tt idzr\_aid} &
-{\tt idzr\_aid.f} \\\hline
-%
-{\tt idzr\_asvd} & computes the SVD of an arbitrary (generally dense)
-matrix, to a specified rank; this routine is randomized, and must be
-initialized with routine {\tt idz\_aidi} & {\tt idzr\_asvd.f}
-\\\hline
-%
-{\tt idzr\_id} & computes the ID of an arbitrary (generally dense)
-matrix, to a specified rank; this routine is often less efficient than
-routine {\tt idzr\_aid} & {\tt idz\_id.f} \\\hline
-%
-{\tt idzr\_qrpiv} & computes the pivoted $QR$ decomposition of an
-arbitrary (generally dense) matrix via Householder transformations,
-stopping at a specified rank of the decomposition & {\tt idz\_qrpiv.f}
-\\\hline
-%
-{\tt idzr\_rid} & computes the ID, to a specified rank, of a matrix
-specified by a routine for applying its adjoint to arbitrary vectors;
-this routine is randomized & {\tt idzr\_rid.f} \\\hline
-%
-{\tt idzr\_rsvd} & computes the SVD, to a specified rank, of a matrix
-specified by routines for applying the matrix and its adjoint to
-arbitrary vectors; this routine is randomized & {\tt idzr\_rsvd.f}
-\\\hline
-%
-{\tt idzr\_svd} & computes the SVD of an arbitrary (generally dense)
-matrix, to a specified rank; this routine is often less efficient than
-routine {\tt idzr\_asvd} & {\tt idz\_svd.f} \\
-%
-\end{supertabular}
-\end{center}
-
-
-
-\section{Documentation in the source codes}
-
-Each routine in the source codes includes documentation
-in the comments immediately following the declaration
-of the subroutine's calling sequence.
-This documentation describes the purpose of the routine,
-the input and output variables, and the required work arrays (if any). 
-This documentation also cites relevant references.
-Please pay attention to the {\it N.B.}'s;
-{\it N.B.} stands for {\it nota bene} (Latin for ``note well'')
-and highlights important information about the routines.
-
-
-
-\section{Notation and decompositions}
-\label{defs}
-
-This section sets notational conventions employed
-in this documentation and the associated software,
-and defines both the singular value decomposition (SVD)
-and the interpolative decomposition (ID).
-For information concerning other mathematical objects
-used in the code (such as Householder transformations,
-pivoted $QR$ decompositions, and discrete and fast Fourier transforms
---- DFTs and FFTs), see, for example,~\cite{golub-van_loan}.
-For detailed descriptions and proofs of the mathematical facts
-discussed in the present section, see, for example,
-\cite{golub-van_loan} and the references
-in~\cite{halko-martinsson-tropp}.
-
-Throughout this document and the accompanying software distribution,
-$\| \x \|$ always denotes the Euclidean norm of the vector $\x$,
-and $\| A \|$ always denotes the spectral norm of the matrix $A$.
-Subsection~\ref{Euclidean} below defines the Euclidean norm;
-Subsection~\ref{spectral} below defines the spectral norm.
-We use $A^*$ to denote the adjoint of the matrix $A$.
-
-
-\subsection{Euclidean norm}
-\label{Euclidean}
-
-For any positive integer $n$, and vector $\x$ of length $n$,
-the Euclidean ($l^2$) norm $\| \x \|$ is
-%
-\begin{equation}
-\| \x \| = \sqrt{ \sum_{k=1}^n |x_k|^2 },
-\end{equation}
-%
-where $x_1$,~$x_2$, \dots, $x_{n-1}$,~$x_n$ are the entries of $\x$.
-
-
-\subsection{Spectral norm}
-\label{spectral}
-
-For any positive integers $m$ and $n$, and $m \times n$ matrix $A$,
-the spectral ($l^2$ operator) norm $\| A \|$ is
-%
-\begin{equation}
-\| A_{m \times n} \|
-= \max \frac{\| A_{m \times n} \, \x_{n \times 1} \|}
-            {\| \x_{n \times 1} \|},
-\end{equation}
-%
-where the $\max$ is taken over all $n \times 1$ column vectors $\x$
-such that $\| \x \| \ne 0$.
-
-
-\subsection{Singular value decomposition (SVD)}
-
-For any positive real number $\epsilon$,
-positive integers $k$, $m$, and $n$ with $k \le m$ and $k \le n$,
-and any $m \times n$ matrix $A$,
-a rank-$k$ approximation to $A$ in the form of an SVD
-(to precision $\epsilon$) consists of an $m \times k$ matrix $U$
-whose columns are orthonormal, an $n \times k$ matrix $V$
-whose columns are orthonormal, and a diagonal $k \times k$ matrix
-$\Sigma$ with diagonal entries
-$\Sigma_{1,1} \ge \Sigma_{2,2} \ge \dots \ge \Sigma_{n-1,n-1}
-                                         \ge \Sigma_{n,n} \ge 0$,
-such that
-%
-\begin{equation}
-\| A_{m \times n} - U_{m \times k} \, \Sigma_{k \times k}
-                 \, (V^*)_{k \times n} \| \le \epsilon.
-\end{equation}
-%
-The product $U \, \Sigma \, V^*$ is known as an SVD.
-The columns of $U$ are known as left singular vectors;
-the columns of $V$ are known as right singular vectors.
-The diagonal entries of $\Sigma$ are known as singular values.
-
-When $k = m$ or $k = n$, and $A = U \, \Sigma \, V^*$,
-then $U \, \Sigma \, V^*$ is known as the SVD
-of $A$; the columns of $U$ are the left singular vectors of $A$,
-the columns of $V$ are the right singular vectors of $A$,
-and the diagonal entries of $\Sigma$ are the singular values of $A$.
-For any positive integer $k$ with $k < m$ and $k < n$,
-there exists a rank-$k$ approximation to $A$ in the form of an SVD,
-to precision $\sigma_{k+1}$, where $\sigma_{k+1}$ is the $(k+1)^\st$
-greatest singular value of $A$.
-
-
-\subsection{Interpolative decomposition (ID)}
-
-For any positive real number $\epsilon$,
-positive integers $k$, $m$, and $n$ with $k \le m$ and $k \le n$,
-and any $m \times n$ matrix $A$,
-a rank-$k$ approximation to $A$ in the form of an ID
-(to precision $\epsilon$) consists of a $k \times n$ matrix $P$,
-and an $m \times k$ matrix $B$ whose columns constitute a subset
-of the columns of $A$, such that
-%
-\begin{enumerate}
-\item $\| A_{m \times n} - B_{m \times k} \, P_{k \times n} \|
-      \le \epsilon$,
-\item some subset of the columns of $P$ makes up the $k \times k$
-      identity matrix, and
-\item every entry of $P$ has an absolute value less than or equal
-      to a reasonably small positive real number, say 2.
-\end{enumerate}
-%
-The product $B \, P$ is known as an ID.
-The matrix $P$ is known as the projection or interpolation matrix
-of the ID. Property~1 above approximates each column of $A$
-via a linear combination of the columns of $B$
-(which are themselves columns of $A$), with the coefficients
-in the linear combination given by the entries of $P$.
-
-The interpolative decomposition is ``interpolative''
-due to Property~2 above. The ID is numerically stable
-due to Property~3 above.
-It follows from Property~2 that the least ($k^\th$ greatest) singular value
-of $P$ is at least 1. Combining Properties~2 and~3 yields that
-%
-\begin{equation}
-\| P_{k \times n} \| \le \sqrt{4k(n-k)+1}.
-\end{equation}
-
-When $k = m$ or $k = n$, and $A = B \, P$,
-then $B \, P$ is known as the ID of $A$.
-For any positive integer $k$ with $k < m$ and $k < n$,
-there exists a rank-$k$ approximation to $A$ in the form of an ID,
-to precision $\sqrt{k(n-k)+1} \; \sigma_{k+1}$,
-where $\sigma_{k+1}$ is the $(k+1)^\st$ greatest singular value of $A$
-(in fact, there exists an ID in which every entry
-of the projection matrix $P$ has an absolute value less than or equal
-to 1).
-
-
-
-\section{Bug reports, feedback, and support}
-
-Please let us know about errors in the software or in the documentation
-via e-mail to {\tt tygert@aya.yale.edu}.
-We would also appreciate hearing about particular applications of the codes,
-especially in the form of journal articles
-e-mailed to {\tt tygert@aya.yale.edu}.
-Mathematical and technical support may also be available via e-mail. Enjoy!
-
-
-
-\bibliographystyle{siam}
-\bibliography{doc}
-
-
+\begin{figure}[H]
+    \centering
+    \caption{Esempio di test bench effettuato con elaborazioni successive}
+    \includegraphics[width=0.95\textwidth]{images/altri-test-bench.png}
+    \label{fig:altri-test-bench}
+\end{figure}
+
+\vspace{4mm}
+\titlerule[0.4pt]
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%% CONCLUSIONE %%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusione}
+Riassumendo si è creato un design con queste caratteristiche:
+\begin{itemize}
+    \item Funzionante in pre e post-sintesi.
+    \item Ottimizzato in modo che durante l'elaborazione venga sfruttata al massimo la RAM: a ogni ciclo di clock una lettura o una scrittura.
+    \item Ottimizzato in modo che ogni lettura della RAM venga eseguita solo se strettamente necessaria (non viene letto ciò che non serve).
+    \item Configurabile con le costanti \verb^MEM_BITS^ e \verb^CELL_BITS^ per adattarsi a differenti tipi di RAM, e con il generic \verb^START_ADDRESS^ per eseguire l'elaborazione all'indirizzo desiderato.
+    \item Frequenza massima di clock impostabile a 85.6Mhz.
+    \item Utilizzo di LUT pari al 0.15\%.
+    \item Utilizzo di FF pari al 0.02\%
+\end{itemize}
 \end{document}
